@@ -1,0 +1,4331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RiceMix · 继电器闭环米水配比系统</title>
+<style>
+:root{
+  --bg:#080c12; --panel:#101823; --panel2:#16202e; --line:#22303f;
+  --txt:#d8e4f2; --dim:#7d8ea3; --dim2:#5b6b7e;
+  --cyan:#4cc9f0; --orange:#ffb020; --red:#ff4d5e; --green:#3ddc97; --violet:#a78bfa;
+  --mono:"JetBrains Mono","Cascadia Code",Consolas,"Courier New",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:"Segoe UI","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  font-size:14px;line-height:1.65;-webkit-font-smoothing:antialiased}
+h1,h2,h3,h4{margin:0;font-weight:600;letter-spacing:.2px}
+code,pre,.mono{font-family:var(--mono)}
+a{color:var(--cyan);text-decoration:none}
+
+/* ---------- 顶栏 ---------- */
+header{padding:22px 26px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0d1520 0%,#080c12 100%)}
+.title-row{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+h1{font-size:22px}
+h1 .sub{color:var(--cyan);font-weight:400}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.badge{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--line);background:#0d1520;color:var(--dim)}
+.badge b{color:var(--txt);font-weight:600}
+.badge.on{border-color:#1d4a5c;color:var(--cyan)}
+.lede{margin-top:10px;color:var(--dim);max-width:940px;font-size:13px}
+
+/* ---------- 页签 ---------- */
+nav{display:flex;gap:2px;padding:0 20px;border-bottom:1px solid var(--line);
+  background:#0a1017;position:sticky;top:0;z-index:50;flex-wrap:wrap}
+nav button{appearance:none;border:0;background:transparent;color:var(--dim);
+  font:inherit;font-size:13.5px;padding:12px 16px;cursor:pointer;
+  border-bottom:2px solid transparent;transition:.15s}
+nav button:hover{color:var(--txt);background:#0e1620}
+nav button.active{color:var(--cyan);border-bottom-color:var(--cyan);background:#0e1620}
+nav .spacer{flex:1}
+nav .hint{align-self:center;padding-right:6px;color:var(--dim2);font-size:11.5px;font-family:var(--mono)}
+
+main{padding:20px}
+.tab{display:none;animation:fade .18s ease}
+.tab.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.panel-h{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;
+  align-items:center;gap:10px;flex-wrap:wrap}
+.panel-h h3{font-size:13.5px}
+.panel-h .tag{font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  border:1px solid var(--line);border-radius:4px;padding:1px 6px}
+.panel-b{padding:14px}
+
+/* ---------- 接线图 ---------- */
+.wire-layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:14px;align-items:start}
+@media (max-width:1180px){.wire-layout{grid-template-columns:1fr}}
+.stage{background:#070b10;border:1px solid var(--line);border-radius:10px;
+  padding:8px;overflow:auto}
+.stage svg{display:block;min-width:1000px}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;
+  border-bottom:1px solid var(--line);background:#0c131c;border-radius:10px 10px 0 0}
+.toolbar .grp{display:flex;gap:6px;align-items:center}
+.toolbar .lbl{font-size:11.5px;color:var(--dim2);font-family:var(--mono)}
+.chip{font:inherit;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;
+  border:1px solid var(--line);background:#0f1824;color:var(--dim);transition:.14s}
+.chip:hover{color:var(--txt);border-color:#33465c}
+.chip.on{background:#0b2a33;border-color:var(--cyan);color:var(--cyan)}
+.chip.step.on{background:#33260b;border-color:var(--orange);color:var(--orange)}
+
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 12px;
+  border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
+.legend i{display:inline-block;width:18px;height:3px;border-radius:2px;
+  vertical-align:middle;margin-right:6px}
+
+.side .panel-b{padding:12px}
+#wireInfo h4{font-size:13px;color:var(--cyan);margin-bottom:6px}
+#wireInfo .kv{display:grid;grid-template-columns:66px 1fr;gap:3px 8px;font-size:12px;margin:8px 0}
+#wireInfo .kv dt{color:var(--dim2);font-family:var(--mono);font-size:11px}
+#wireInfo .kv dd{margin:0;font-family:var(--mono);font-size:12px}
+#wireInfo .note{font-size:12px;color:var(--txt);background:#0d1720;border-left:2px solid var(--orange);
+  padding:7px 9px;border-radius:0 5px 5px 0;margin-top:8px}
+#wireInfo .muted{color:var(--dim2);font-size:12px}
+
+.wtable{width:100%;border-collapse:collapse;font-size:12.5px}
+.wtable th{text-align:left;color:var(--dim);font-weight:500;font-size:11.5px;
+  padding:7px 8px;border-bottom:1px solid var(--line);font-family:var(--mono);white-space:nowrap}
+.wtable td{padding:6px 8px;border-bottom:1px solid #16202c;vertical-align:top}
+.wtable tr{cursor:pointer;transition:.1s}
+.wtable tr:hover{background:#12202c}
+.wtable tr.sel{background:#0b2a33}
+.wtable td.n{font-family:var(--mono);color:var(--dim2);width:30px}
+.wtable .dot{display:inline-block;width:9px;height:9px;border-radius:50%;
+  margin-right:6px;vertical-align:middle}
+.wtable .p{font-family:var(--mono);font-size:11.5px;color:var(--txt)}
+
+.checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.check{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.check h4{font-size:12.5px;color:var(--orange);margin-bottom:6px;font-family:var(--mono)}
+.check ol,.check ul{margin:0;padding-left:18px;color:var(--dim);font-size:12.5px}
+.check li{margin:3px 0}
+.check b{color:var(--txt)}
+.danger{border-color:#4a1d24;background:#180d10}
+.danger h4{color:var(--red)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="title-row">
+    <h1>RiceMix <span class="sub">继电器驱动式闭环米水配比系统</span></h1>
+  </div>
+  <div class="badges">
+    <span class="badge on">Arduino Uno R3</span>
+    <span class="badge on">HX711 + 5kg 悬臂梁</span>
+    <span class="badge on">单路光耦继电器</span>
+    <span class="badge">12V 直流水泵 · 独立供电</span>
+    <span class="badge">闭环称重 · 不依赖流量恒定</span>
+    <span class="badge">三重保险</span>
+  </div>
+  <p class="lede">
+    把「注水」从按秒数开环改成按重量闭环：称米 → 算目标水 → 开泵 → 每 200ms 称总重 →
+    到目标立刻停 → 不够再补。泵流量怎么飘都不影响结果，泵卡死不转会超时自停。
+    本页包含<b>可照着拼的飞线接线图</b>、<b>可拖动的实时模拟器</b>、
+    <b>可编辑配重含义的固件</b>与<b>采购清单</b>。
+  </p>
+</header>
+
+<nav>
+  <button class="active" data-tab="wiring">① 接线飞线图</button>
+  <button data-tab="sim">② 实时模拟</button>
+  <button data-tab="mech">③ 机制原理</button>
+  <button data-tab="fw">④ 固件与配重编辑</button>
+  <button data-tab="bom">⑤ 采购清单</button>
+  <span class="spacer"></span>
+  <span class="hint">悬停/点击任意飞线看详情</span>
+</nav>
+
+<main>
+
+<!-- ==================== ① 接线图 ==================== -->
+<section class="tab active" id="tab-wiring">
+  <div class="panel" style="margin-bottom:14px">
+    <div class="toolbar">
+      <div class="grp">
+        <span class="lbl">视图</span>
+        <button class="chip vsw on" data-view="wire">原理飞线图</button>
+        <button class="chip vsw" data-view="hw">实物装配图</button>
+      </div>
+      <div class="grp" id="grpStep">
+        <span class="lbl">分步接线</span>
+        <button class="chip step" data-step="0">全部</button>
+        <button class="chip step" data-step="1">1 传感器四线</button>
+        <button class="chip step" data-step="2">2 HX711→主控</button>
+        <button class="chip step" data-step="3">3 继电器+指示灯</button>
+        <button class="chip step" data-step="4">4 强电回路</button>
+        <button class="chip step" data-step="5">5 保护件+共地</button>
+      </div>
+      <div class="grp" id="grpLayer" style="margin-left:auto">
+        <span class="lbl">图层</span>
+        <button class="chip on" data-layer="ctrl">弱电</button>
+        <button class="chip on" data-layer="power">强电</button>
+        <button class="chip on" data-layer="protect">保护件</button>
+        <button class="chip on" data-layer="labels">标注</button>
+      </div>
+    </div>
+    <div class="stage" id="wireStage"><svg id="wireSvg" viewBox="0 0 1360 1010" width="100%" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="stage" id="hwStage" style="display:none"><svg id="hwSvg" viewBox="0 0 1480 1300" width="100%" preserveAspectRatio="xMidYMid meet"></svg></div>
+    <div class="legend" id="legendWire">
+      <span><i style="background:#e5484d"></i>5V / 电源正</span>
+      <span><i style="background:#2b3340"></i>GND / 电源负</span>
+      <span><i style="background:#3ddc97"></i>SCK 时钟</span>
+      <span><i style="background:#ffd23f"></i>DT 数据</span>
+      <span><i style="background:#ff9f1c"></i>继电器控制</span>
+      <span><i style="background:#a78bfa"></i>指示灯 D13</span>
+      <span><i style="background:#4cc9f0"></i>泵供电正</span>
+      <span><i style="background:#7dd3fc"></i>泵回流负</span>
+      <span><i style="background:#f472b6"></i>传感器激励</span>
+      <span><i style="background:#c084fc"></i>传感器信号</span>
+    </div>
+  </div>
+
+  <div class="wire-layout">
+    <div class="panel">
+      <div class="panel-h">
+        <h3>完整接线速查表</h3>
+        <span class="tag">27 根线</span>
+        <span class="tag">按顺序接，每步通电量一次</span>
+      </div>
+      <div class="panel-b" style="overflow:auto">
+        <table class="wtable" id="wireTable">
+          <thead><tr><th>#</th><th>从</th><th>到</th><th>线色</th><th>作用</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="panel">
+        <div class="panel-h"><h3>线缆详情</h3></div>
+        <div class="panel-b" id="wireInfo">
+          <p class="muted">把鼠标移到左边图上任意一条彩色飞线，或点下面的表格行。</p>
+        </div>
+      </div>
+      <div class="panel" style="margin-top:12px">
+        <div class="panel-h"><h3>配色约定</h3></div>
+        <div class="panel-b" style="font-size:12.5px;color:var(--dim)">
+          传感器四线颜色<b style="color:var(--txt)">因厂家而异</b>：
+          常见 <span class="mono">红=E+ 黑=E− 白=A− 绿=A+</span>，
+          也有 <span class="mono">红/黑/绿/白</span> 或 <span class="mono">红/黑/蓝/黄</span> 的版本。
+          <b style="color:var(--orange)">一律以 HX711 模块丝印 E+ / E− / A+ / A− 为准</b>，
+          拿不准就用万用表量：E+ 与 E− 之间约 1kΩ（激励绕组），A+ 与 A− 之间约 1kΩ（信号绕组），
+          两组之间互相约 1kΩ、彼此不通才是正确的一组。
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="panel-h"><h3>通电前自检 · 六关</h3><span class="tag">打勾再上电</span></div>
+    <div class="panel-b">
+      <div class="checks">
+        <div class="check">
+          <h4>01 断电用通断档</h4>
+          <ol>
+            <li>万用表打<b>通断/蜂鸣档</b>，全程不通电。</li>
+            <li>逐根核对：主控 5V ↔ HX711 VCC、主控 GND ↔ HX711 GND。</li>
+            <li>确认 <b>5V 与 GND 之间不蜂鸣</b>（蜂鸣=短路，上电即烧）。</li>
+          </ol>
+        </div>
+        <div class="check">
+          <h4>02 极性不许反</h4>
+          <ol>
+            <li>HX711 的 VCC/GND <b>反接最容易烧</b>，接线前先拍照留底。</li>
+            <li>电解电容 <b>长脚正、短脚负、壳体上标 −</b>。</li>
+            <li>二极管 <b>条纹端（阴极）接泵正极</b>。</li>
+          </ol>
+        </div>
+        <div class="check">
+          <h4>03 共地只认一处</h4>
+          <ol>
+            <li>12V 电源负极 → 主控 GND，<b>必须连</b>（图上橙色标注那条）。</li>
+            <li>不共地 → 继电器信号没有参考电位，会乱吸合。</li>
+            <li>共地点只留一个，避免地环路。</li>
+          </ol>
+        </div>
+        <div class="check">
+          <h4>04 继电器先带灯不带泵</h4>
+          <ol>
+            <li>继电器输出端先接 <b>LED + 220Ω</b>，听「咔哒」、看亮灭。</li>
+            <li>确认是<b>高触发还是低触发</b>，再决定固件里 <span class="mono">SET TRIG 0/1</span>。</li>
+            <li>确认无误才把泵换上去。</li>
+          </ol>
+        </div>
+        <div class="check">
+          <h4>05 泵先空转量流量</h4>
+          <ol>
+            <li>泵放清水桶里空转 10 秒，接水称重，算出 <b>g/s</b>。</li>
+            <li>把实测值填进固件 <span class="mono">SET FLOW &lt;g/s&gt;</span> 作为初值。</li>
+            <li>顺手量工作电流，确认 12V 电源余量 ≥1.5 倍。</li>
+          </ol>
+        </div>
+        <div class="check danger">
+          <h4>06 第一次跑只放水不放米</h4>
+          <ol>
+            <li>容器里<b>只放水不放米</b>，量少一点，全程有人值守。</li>
+            <li>手放在电源开关上，见溢水立刻断电。</li>
+            <li>先验证「到量自停」和「超时自停」两个动作再放米。</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="panel-h"><h3>最容易炸的三个点</h3><span class="tag">血泪榜</span></div>
+    <div class="panel-b">
+      <div class="checks">
+        <div class="check danger">
+          <h4>A. 用主控 5V 带泵</h4>
+          <p style="margin:0;color:var(--dim);font-size:12.5px">
+            泵堵转瞬间电流可达额定 3~5 倍，直接拉死 USB 供电或烧稳压芯片。
+            <b style="color:var(--txt)">泵必须独立 12V 供电，只共地不共用电源。</b>
+          </p>
+        </div>
+        <div class="check danger">
+          <h4>B. 忘记续流二极管</h4>
+          <p style="margin:0;color:var(--dim);font-size:12.5px">
+            泵是感性负载，断电瞬间反向高压可达上百伏，会打穿继电器触点、顺着地线干扰主控致死机重启。
+            <b style="color:var(--txt)">1N4007 反并联，条纹端朝泵正</b>。
+          </p>
+        </div>
+        <div class="check danger">
+          <h4>C. 无超时保护</h4>
+          <p style="margin:0;color:var(--dim);font-size:12.5px">
+            传感器卡死、泵空转不出水、管路脱落，闭环都会永远等下去直到淹桌。
+            <b style="color:var(--txt)">超时 + 干抽检测 + 总重上限</b>，三者缺一不可。
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== ② 实时模拟 ==================== -->
+<section class="tab" id="tab-sim">
+  <style>
+    .sim-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+    @media (max-width:1120px){.sim-grid{grid-template-columns:1fr}}
+    #tank{display:block;width:100%;height:auto;border-radius:0 0 10px 10px;background:#070b10}
+    .statbar{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));
+      border-top:1px solid var(--line);background:#0c131c;border-radius:0 0 10px 10px}
+    .stat{padding:9px 12px;border-right:1px solid #16202c}
+    .stat:last-child{border-right:0}
+    .stat .k{font-size:10.5px;color:var(--dim2);font-family:var(--mono);display:block}
+    .stat .v{font-size:17px;font-family:var(--mono);font-weight:600;color:var(--txt);
+      font-variant-numeric:tabular-nums;letter-spacing:-.4px}
+    .stat .v small{font-size:10px;color:var(--dim2);margin-left:2px;font-weight:400}
+    .stat.hot .v{color:var(--cyan)}
+    .stat.warn .v{color:var(--orange)}
+    .stat.bad .v{color:var(--red)}
+    .stat.good .v{color:var(--green)}
+
+    .ctrl{padding:12px 14px;border-bottom:1px solid #16202c}
+    .ctrl:last-child{border-bottom:0}
+    .ctrl .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+    .ctrl label{font-size:12.5px;color:var(--dim)}
+    .ctrl .val{font-family:var(--mono);font-size:12.5px;color:var(--cyan)}
+    input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:3px;
+      background:#1d2a38;outline:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;
+      border-radius:50%;background:var(--cyan);cursor:pointer;border:2px solid #07131a;
+      box-shadow:0 0 8px rgba(76,201,240,.5)}
+    .btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .btn{font:inherit;font-size:12.5px;padding:8px 10px;border-radius:7px;cursor:pointer;
+      border:1px solid var(--line);background:#0f1824;color:var(--txt);transition:.14s}
+    /* 8 档配方快捷键 */
+    .presets{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-top:7px}
+    .presets input{display:none}
+    .presets label{display:flex;flex-direction:column;gap:1px;align-items:center;justify-content:center;
+      padding:6px 2px;border-radius:6px;cursor:pointer;font-size:10px;line-height:1.25;
+      background:#0f1720;border:1px solid #1e2c3a;color:#93a7ba;transition:.15s}
+    .presets label b{font-family:var(--mono);font-size:9px;color:#4d6b82;font-weight:600}
+    .presets label:hover{border-color:#2b4256;color:#cfe0ee}
+    .presets input:checked + label{background:#0d3346;border-color:var(--cyan);color:#8fe6ff;
+      box-shadow:inset 0 0 12px rgba(76,201,240,.2)}
+    .presets input:checked + label b{color:#6fb8d6}
+    .hint{margin-top:6px;font-size:10px;line-height:1.55;color:#5c7488}
+    .btn:hover{border-color:#3a4d64;background:#132030}
+    .btn.primary{background:#0b3340;border-color:#155e75;color:#a5e8fb}
+    .btn.primary:hover{background:#0e4055}
+    .btn.danger{background:#2a0f14;border-color:#5c1f28;color:#ff9aa4}
+    .btn.danger:hover{background:#3a151c}
+    .btn.ghost{font-size:12px}
+    .seg{display:flex;border:1px solid var(--line);border-radius:7px;overflow:hidden}
+    .seg button{flex:1;font:inherit;font-size:12px;padding:6px;border:0;background:#0f1824;
+      color:var(--dim);cursor:pointer}
+    .seg button.on{background:#0b3340;color:var(--cyan)}
+    .sw{display:flex;align-items:center;justify-content:space-between;padding:6px 0;font-size:12.5px;color:var(--dim)}
+    .sw input{appearance:none;width:34px;height:18px;border-radius:10px;background:#1d2a38;
+      position:relative;cursor:pointer;outline:none;transition:.15s}
+    .sw input:checked{background:#0e5b6b}
+    .sw input::after{content:'';position:absolute;width:12px;height:12px;border-radius:50%;
+      background:#7d8ea3;top:3px;left:3px;transition:.15s}
+    .sw input:checked::after{left:19px;background:var(--cyan)}
+
+    .phasebar{display:flex;gap:4px;padding:10px 12px;border-top:1px solid var(--line);background:#0c131c}
+    .phase{flex:1;text-align:center;font-size:10.5px;font-family:var(--mono);
+      padding:5px 2px;border-radius:5px;border:1px solid #16202c;color:var(--dim2);
+      background:#0a1119;transition:.16s;white-space:nowrap}
+    /* 深底亮字：无论屏幕/抗锯齿如何都保证可读 */
+    .phase.on{border-color:var(--cyan);color:#8fe6ff;background:#0d3346;font-weight:700;
+      box-shadow:inset 0 0 16px rgba(76,201,240,.28),0 0 10px rgba(76,201,240,.25)}
+    .phase.on.bad{border-color:var(--red);color:#ffb3bd;background:#3a0d17;
+      box-shadow:inset 0 0 16px rgba(255,77,94,.3),0 0 10px rgba(255,77,94,.25)}
+    .phase.on.ok{border-color:var(--green);color:#9df3cd;background:#0b3227;
+      box-shadow:inset 0 0 16px rgba(61,220,151,.28),0 0 10px rgba(61,220,151,.22)}
+
+    #log{height:220px;overflow:auto;padding:10px 12px;font-family:var(--mono);
+      font-size:11.5px;line-height:1.7;background:#070b10;border-radius:0 0 10px 10px}
+    #log div{white-space:pre-wrap;word-break:break-all}
+    #log .t{color:#3f5063}
+    #log .ok{color:var(--green)}
+    #log .warn{color:var(--orange)}
+    #log .err{color:var(--red)}
+    #log .hi{color:var(--cyan)}
+    #curve{display:block;width:100%;height:auto;background:#070b10;border-radius:0 0 10px 10px}
+  </style>
+
+  <div class="sim-grid">
+    <!-- 舞台 -->
+    <div class="panel">
+      <div class="panel-h">
+        <h3>配比舞台</h3>
+        <span class="tag">HX711 闭环</span>
+        <span class="tag" id="simClock">t = 0.00 s</span>
+        <span style="margin-left:auto" class="tag" id="simStateTag">IDLE</span>
+      </div>
+      <canvas id="tank" width="1560" height="760"></canvas>
+      <div class="statbar">
+        <div class="stat"><span class="k">米重 rice</span><span class="v" id="sRice">0<small>g</small></span></div>
+        <div class="stat hot"><span class="k">目标水 target</span><span class="v" id="sTarget">0<small>g</small></span></div>
+        <div class="stat good"><span class="k">已加 water</span><span class="v" id="sWater">0<small>g</small></span></div>
+        <div class="stat"><span class="k">剩余</span><span class="v" id="sRemain">0<small>g</small></span></div>
+        <div class="stat"><span class="k">实测流量</span><span class="v" id="sFlow">0<small>g/s</small></span></div>
+        <div class="stat"><span class="k">总重</span><span class="v" id="sTotal">0<small>g</small></span></div>
+        <div class="stat"><span class="k">误差</span><span class="v" id="sErr">—</span></div>
+      </div>
+      <div class="phasebar">
+        <div class="phase" data-ph="IDLE">IDLE 待料</div>
+        <div class="phase" data-ph="DETECT">DETECT 识别</div>
+        <div class="phase" data-ph="FILL">FILL 注水</div>
+        <div class="phase" data-ph="SETTLE">SETTLE 回稳</div>
+        <div class="phase" data-ph="DONE">DONE 完成</div>
+        <div class="phase" data-ph="FAULT">FAULT 保护</div>
+      </div>
+    </div>
+
+    <!-- 控制台 -->
+    <div class="panel">
+      <div class="panel-h"><h3>控制台</h3><span class="tag">改参数即时生效</span></div>
+
+      <div class="ctrl">
+        <div class="row"><label>投米量</label><span class="val"><span id="vRice">120</span> g</span></div>
+        <input type="range" id="inRice" min="30" max="500" step="10" value="120">
+      </div>
+
+      <div class="ctrl">
+        <div class="row"><label>8 档配方</label><span class="val" id="vPreset">东北米</span></div>
+        <div class="presets" id="presetRow">
+          <input type="radio" name="preset" id="ps0" data-r="1.20" data-t="25"  data-n="东北米" checked><label for="ps0">东北米<b>1:1.2</b></label>
+          <input type="radio" name="preset" id="ps1" data-r="1.10" data-t="25"  data-n="泰国米"><label for="ps1">泰国米<b>1:1.1</b></label>
+          <input type="radio" name="preset" id="ps2" data-r="2.00" data-t="35"  data-n="软饭"><label for="ps2">软饭<b>1:2</b></label>
+          <input type="radio" name="preset" id="ps3" data-r="3.00" data-t="45"  data-n="烂饭"><label for="ps3">烂饭<b>1:3</b></label>
+          <input type="radio" name="preset" id="ps4" data-r="6.00" data-t="75"  data-n="稠粥"><label for="ps4">稠粥<b>1:6</b></label>
+          <input type="radio" name="preset" id="ps5" data-r="9.00" data-t="100" data-n="稀饭"><label for="ps5">稀饭<b>1:9</b></label>
+        </div>
+        <div class="hint" id="presetHint">点一下 = 键盘按一下，同时切米水比和超时。1:9 要 100 秒，20 秒超时会做不成粥。</div>
+      </div>
+
+      <div class="ctrl">
+        <div class="row"><label>米水比（水/米）</label><span class="val">1 : <span id="vRatio">1.20</span></span></div>
+        <input type="range" id="inRatio" min="90" max="900" step="1" value="120">
+      </div>
+      <div class="ctrl">
+        <div class="row"><label>泵流量</label><span class="val"><span id="vFlow">12</span> g/s</span></div>
+        <input type="range" id="inFlow" min="3" max="35" step="0.5" value="12">
+      </div>
+      <div class="ctrl">
+        <div class="row"><label>停泵余流延迟 lead</label><span class="val"><span id="vLead">200</span> ms</span></div>
+        <input type="range" id="inLead" min="0" max="800" step="20" value="200">
+      </div>
+      <div class="ctrl">
+        <div class="row"><label>注水超时</label><span class="val"><span id="vTo">25</span> s</span></div>
+        <input type="range" id="inTo" min="4" max="120" step="1" value="25">
+      </div>
+      <div class="ctrl">
+        <div class="row"><label>称重噪声</label><span class="val">±<span id="vNoise">1.0</span> g</span></div>
+        <input type="range" id="inNoise" min="0" max="60" step="5" value="10">
+      </div>
+
+      <div class="ctrl">
+        <div class="sw"><span>提前断流补偿</span><input type="checkbox" id="swLead" checked></div>
+        <div class="sw"><span>不足自动补泵</span><input type="checkbox" id="swTopup" checked></div>
+        <div class="sw"><span>串口日志</span><input type="checkbox" id="swLog" checked></div>
+      </div>
+
+      <div class="ctrl">
+        <div class="btns">
+          <button class="btn primary" id="btnStart">投米并开始</button>
+          <button class="btn danger" id="btnStop">急停</button>
+          <button class="btn ghost" id="btnClear">清空复位</button>
+          <button class="btn ghost" id="btnJam">注入：泵卡死</button>
+          <button class="btn ghost" id="btnFrozen">注入：传感器卡死</button>
+          <button class="btn ghost" id="btnClog">注入：管路堵塞</button>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <div class="row"><label>仿真倍速</label><span class="val" id="vSpeed">1×</span></div>
+        <div class="seg" id="segSpeed">
+          <button class="on" data-sp="1">1×</button>
+          <button data-sp="3">3×</button>
+          <button data-sp="8">8×</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="panel-h"><h3>重量-时间曲线</h3>
+      <span class="tag">青色=总重</span><span class="tag">橙色虚线=目标</span>
+      <span class="tag" id="cursorTag">—</span>
+    </div>
+    <canvas id="curve" width="1560" height="360"></canvas>
+  </div>
+
+  <div class="panel" style="margin-top:14px">
+    <div class="panel-h"><h3>串口输出</h3>
+      <span class="tag">9600 8N1</span>
+      <button class="chip" id="btnClearLog" style="margin-left:auto">清屏</button>
+    </div>
+    <div id="log"></div>
+  </div>
+</section>
+
+<!-- ==================== ③ 机制 ==================== -->
+<section class="tab" id="tab-mech">
+<style>
+#tab-mech .lead{font-size:13px;line-height:1.85;color:#9fb3c8;max-width:1120px}
+#tab-mech .lead b{color:var(--txt)}
+#tab-mech .cmp{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+@media (max-width:900px){#tab-mech .cmp{grid-template-columns:1fr}}
+#tab-mech .cmp .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+#tab-mech .cmp h4{font-size:13.5px;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+#tab-mech .cmp h4 .dot{width:8px;height:8px;border-radius:50%}
+#tab-mech .cmp ul{list-style:none;display:flex;flex-direction:column;gap:7px;font-size:12.5px;color:#9fb3c8;line-height:1.7}
+#tab-mech .cmp ul li::before{content:"·";color:#3f566b;margin-right:7px;font-weight:700}
+#tab-mech .cmp.bad .card{border-color:#3a1f26}
+#tab-mech .cmp.bad h4{color:#ff8792}
+#tab-mech .cmp.good .card{border-color:#1b3f33}
+#tab-mech .cmp.good h4{color:#5de8ac}
+
+#tab-mech .fx{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px;margin-top:12px}
+#tab-mech .fx .f{background:#0b1219;border:1px solid var(--line);border-left:3px solid var(--cyan);
+  border-radius:8px;padding:12px 14px}
+#tab-mech .fx .f.o{border-left-color:var(--orange)}
+#tab-mech .fx .f.v{border-left-color:var(--violet)}
+#tab-mech .fx .f.g{border-left-color:var(--green)}
+#tab-mech .fx .f .lb{font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px}
+#tab-mech .fx .f .eq{font-family:var(--mono);font-size:13.5px;color:#d8e4f2;line-height:1.85;
+  word-break:break-word}
+#tab-mech .fx .f .eq em{color:var(--cyan);font-style:normal}
+#tab-mech .fx .f .eq i{color:var(--orange);font-style:normal}
+#tab-mech .fx .f .ex{margin-top:8px;font-size:11.5px;color:#6d8296;line-height:1.6;
+  font-family:var(--mono)}
+
+#tab-mech .statewrap{background:#070b10;border:1px solid var(--line);border-radius:10px;
+  padding:6px;overflow-x:auto;margin-top:12px}
+#tab-mech .statewrap svg{display:block;width:100%;min-width:760px;height:auto}
+#tab-mech .edgetbl{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+  gap:8px;margin-top:12px}
+#tab-mech .edgetbl div{background:#0b1219;border:1px solid var(--line);border-radius:7px;
+  padding:9px 12px;font-size:12px;color:#9fb3c8;line-height:1.6}
+#tab-mech .edgetbl b{font-family:var(--mono);color:var(--cyan);margin-right:7px}
+
+#tab-mech .calc{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:14px;margin-top:12px}
+@media (max-width:1000px){#tab-mech .calc{grid-template-columns:1fr}}
+#tab-mech .calc .pane{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+#tab-mech .calc label.rw{display:block;margin-bottom:14px}
+#tab-mech .calc .lbrow{display:flex;justify-content:space-between;font-size:12px;
+  color:#9fb3c8;margin-bottom:6px}
+#tab-mech .calc .lbrow b{font-family:var(--mono);color:var(--orange);font-size:13px}
+#tab-mech .calc input[type=range]{width:100%;accent-color:var(--cyan);height:4px}
+#tab-mech .calc .out{font-family:var(--mono);font-size:12.5px;line-height:2;color:#9fb3c8}
+#tab-mech .calc .out .big{font-size:22px;color:var(--cyan);font-weight:600}
+#tab-mech .calc .cmd{display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap}
+#tab-mech .calc code{font-family:var(--mono);font-size:12.5px;background:#0b1219;
+  border:1px solid var(--line);border-radius:6px;padding:6px 10px;color:#7dd3fc}
+#tab-mech canvas#mapCv{display:block;width:100%;height:auto;border-radius:8px;background:#070b10}
+
+#tab-mech table.tk{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px}
+#tab-mech table.tk th{text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line)}
+#tab-mech table.tk td{padding:9px 10px;border-bottom:1px solid #101a24;color:#9fb3c8;line-height:1.6}
+#tab-mech table.tk td:first-child{font-family:var(--mono);color:var(--orange);white-space:nowrap}
+#tab-mech .fluid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:12px}
+#tab-mech .fluid .f{background:#0b1219;border:1px solid var(--line);border-radius:9px;padding:13px 15px}
+#tab-mech .fluid .f h5{font-size:12.5px;color:var(--cyan);margin-bottom:7px}
+#tab-mech .fluid .f p{font-size:12.5px;color:#8ba0b5;line-height:1.8}
+#tab-mech .fluid .f p b{color:#d8e4f2}
+#tab-mech .sechead{display:flex;align-items:center;gap:10px;margin:26px 0 4px}
+#tab-mech .sechead .n{font-family:var(--mono);font-size:11px;color:var(--cyan);
+  border:1px solid #1d4a5c;border-radius:5px;padding:2px 7px}
+#tab-mech .sechead h3{font-size:15px}
+#tab-mech .sechead .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+</style>
+
+<div class="lead">
+  这个系统的全部难点不在「让泵转起来」，而在<b>知道什么时候该停</b>。下面把这台机器拆成四层：
+  <b>控制律</b>（算什么）、<b>状态机</b>（什么时候做什么）、<b>时序</b>（每个动作的物理延迟）、
+  <b>流体</b>（为什么简单的「到量就停」一定会超）。
+</div>
+
+<div class="sechead"><span class="n">01</span><h3>开环 vs 闭环：为什么必须称重</h3><span class="ln"></span></div>
+<div class="cmp bad">
+  <div class="card">
+    <h4><span class="dot" style="background:#ff4d5e"></span>开环：按时间放水</h4>
+    <ul>
+      <li>代码：<code style="font-family:var(--mono);color:#7dd3fc">delay(米重 × 比例 ÷ 假设流量 × 1000)</code></li>
+      <li>假定的流量是出厂值，只要泵老化 10%、电池电压从 12.6V 掉到 11.2V、滤网挂米浆、出水管抬高 10cm —— 实际流量立刻偏离</li>
+      <li>无任何反馈。米水比从 1:1.2 漂到 1:1.8 你只有吃饭的时候才知道</li>
+      <li>管子脱落 / 泵空转 → 一路放到超时，谁也不知道</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4><span class="dot" style="background:#ff4d5e"></span>开环误差来源（都是慢变量）</h4>
+    <ul>
+      <li>泵的扬程-流量曲线随叶轮磨损逐年下滑</li>
+      <li>12V 适配器带载后电压跌落，泵转速与电压近似一次方关系</li>
+      <li>水位差：容器水面上升 → 出口背压上升 → 流量下降（这一段是<b>非线性</b>的）</li>
+      <li>水温、米浆黏度、管路弯头数量，全都会改写那个「假设的流量」</li>
+    </ul>
+  </div>
+</div>
+<div class="cmp good">
+  <div class="card">
+    <h4><span class="dot" style="background:#3ddc97"></span>闭环：按重量放水</h4>
+    <ul>
+      <li>唯一被控量是<b>秤上的数字</b>，泵流量降级成中间变量</li>
+      <li>流量变慢 → 只是耗时变长，<b>终点不变</b></li>
+      <li>泵不出水 → 3 秒内重量不动 → 立刻判干转并停泵</li>
+      <li>传感器或继电器失效 → 超时/超重两道硬闸兜底</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4><span class="dot" style="background:#3ddc97"></span>闭环要付的代价</h4>
+    <ul>
+      <li>必须能<b>实时读出</b>重量：HX711 + 应变片，200 ms 一次</li>
+      <li>必须处理<b>停泵余流</b>：停机后管里的水还在往容器里掉</li>
+      <li>必须处理<b>称重滞后</b>：水砸在米上，秤会抖，读数不能立刻当真</li>
+      <li>方案里那 1000μF 电容 + 共地，就是为「泵启动瞬间别把 Arduino 拽复位」而存在的</li>
+    </ul>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">02</span><h3>五条控制律</h3><span class="ln"></span></div>
+<div class="fx">
+  <div class="f">
+    <div class="lb">① 目标水量</div>
+    <div class="eq">W<sub>target</sub> = <em>W<sub>rice</sub></em> × <i>ratio</i></div>
+    <div class="ex">ratio 默认 1.20；150 g 米 → 180 g 水</div>
+  </div>
+  <div class="f o">
+    <div class="lb">② 配重映射（可编辑）</div>
+    <div class="eq">W<sub>rice</sub> = W<sub>load</sub> × ( portionRice / portionWeight )</div>
+    <div class="ex">SET PORTION 100 150 → 秤上 100 g 配重 = 150 g 米，系数 k = 1.5</div>
+  </div>
+  <div class="f">
+    <div class="lb">③ 提前断流补偿</div>
+    <div class="eq">leadG = <em>flowEst</em> × ( <i>leadMs</i> + SAMPLE_MS ) / 1000</div>
+    <div class="ex">12 g/s × 400 ms = 4.8 g —— 剩下的量小于它就该关泵了</div>
+  </div>
+  <div class="f v">
+    <div class="lb">④ 流量在线估计（一阶低通）</div>
+    <div class="eq">inst = ΔW / Δt<br>flowEst ← 0.7·flowEst + 0.3·inst</div>
+    <div class="ex">削掉称重噪声与水面冲击，限幅 [0, 4×estFlow]</div>
+  </div>
+  <div class="f g">
+    <div class="lb">⑤ 稳态判据</div>
+    <div class="eq">| W<sub>added</sub> − W<sub>target</sub> | ≤ TOPUP_TOL</div>
+    <div class="ex">TOPUP_TOL = 1.5 g；超出则最多补泵 3 次</div>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">03</span><h3>状态机：四个状态，五条边</h3><span class="ln"></span></div>
+<div class="statewrap">
+<svg viewBox="0 0 1040 400" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--mono)">
+  <defs>
+    <marker id="aC" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#4cc9f0"/></marker>
+    <marker id="aO" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ffb020"/></marker>
+    <marker id="aG" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3ddc97"/></marker>
+    <marker id="aR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#ff4d5e"/></marker>
+  </defs>
+
+  <!-- A: IDLE -> FILL -->
+  <line x1="184" y1="140" x2="350" y2="140" stroke="#4cc9f0" stroke-width="1.8" marker-end="url(#aC)"/>
+  <circle cx="267" cy="128" r="11" fill="#0d1620" stroke="#4cc9f0"/>
+  <text x="267" y="132" fill="#4cc9f0" font-size="11" text-anchor="middle">A</text>
+
+  <!-- B: FILL -> SETTLE -->
+  <line x1="486" y1="140" x2="676" y2="140" stroke="#4cc9f0" stroke-width="1.8" marker-end="url(#aC)"/>
+  <circle cx="581" cy="128" r="11" fill="#0d1620" stroke="#4cc9f0"/>
+  <text x="581" y="132" fill="#4cc9f0" font-size="11" text-anchor="middle">B</text>
+
+  <!-- C: SETTLE -> FILL (topup) -->
+  <path d="M 740,82 C 740,18 420,18 420,72" fill="none" stroke="#ffb020" stroke-width="1.8"
+        stroke-dasharray="5 4" marker-end="url(#aO)"/>
+  <circle cx="580" cy="34" r="11" fill="#0d1620" stroke="#ffb020"/>
+  <text x="580" y="38" fill="#ffb020" font-size="11" text-anchor="middle">C</text>
+
+  <!-- D: SETTLE -> IDLE (done) -->
+  <path d="M 740,198 L 740,255 L 130,255 L 130,198" fill="none" stroke="#3ddc97"
+        stroke-width="1.8" marker-end="url(#aG)"/>
+  <circle cx="435" cy="255" r="11" fill="#070b10" stroke="#3ddc97"/>
+  <text x="435" y="259" fill="#3ddc97" font-size="11" text-anchor="middle">D</text>
+
+  <!-- E: FILL -> FAULT -->
+  <path d="M 470,182 C 620,278 790,330 878,318" fill="none" stroke="#ff4d5e"
+        stroke-width="1.8" marker-end="url(#aR)"/>
+  <circle cx="700" cy="300" r="11" fill="#0d1620" stroke="#ff4d5e"/>
+  <text x="700" y="304" fill="#ff4d5e" font-size="11" text-anchor="middle">E</text>
+
+  <!-- 节点 -->
+  <circle cx="130" cy="140" r="52" fill="#0d1620" stroke="#3a5a72" stroke-width="1.6"/>
+  <text x="130" y="132" fill="#d8e4f2" font-size="14.5" font-weight="600" text-anchor="middle">IDLE</text>
+  <text x="130" y="149" fill="#6d8296" font-size="10.5" text-anchor="middle">泵 OFF</text>
+  <text x="130" y="164" fill="#6d8296" font-size="10.5" text-anchor="middle">tare 去皮</text>
+
+  <circle cx="420" cy="140" r="64" fill="#0d1620" stroke="#4cc9f0" stroke-width="2"/>
+  <text x="420" y="130" fill="#4cc9f0" font-size="15" font-weight="600" text-anchor="middle">FILL</text>
+  <text x="420" y="148" fill="#8ba0b5" font-size="10.5" text-anchor="middle">泵 ON</text>
+  <text x="420" y="163" fill="#8ba0b5" font-size="10.5" text-anchor="middle">每 200ms 称重</text>
+  <text x="420" y="178" fill="#8ba0b5" font-size="10.5" text-anchor="middle">三道保险在跑</text>
+
+  <circle cx="740" cy="140" r="58" fill="#0d1620" stroke="#ffb020" stroke-width="2"/>
+  <text x="740" y="132" fill="#ffb020" font-size="14.5" font-weight="600" text-anchor="middle">SETTLE</text>
+  <text x="740" y="149" fill="#8ba0b5" font-size="10.5" text-anchor="middle">泵 OFF 等余流</text>
+  <text x="740" y="164" fill="#8ba0b5" font-size="10.5" text-anchor="middle">lead + 400 ms</text>
+
+  <circle cx="930" cy="305" r="52" fill="#1a0d11" stroke="#ff4d5e" stroke-width="2"/>
+  <text x="930" y="297" fill="#ff4d5e" font-size="14.5" font-weight="600" text-anchor="middle">FAULT</text>
+  <text x="930" y="314" fill="#a86b73" font-size="10.5" text-anchor="middle">强制停泵</text>
+  <text x="930" y="329" fill="#a86b73" font-size="10.5" text-anchor="middle">等人工复位</text>
+</svg>
+</div>
+<div class="edgetbl">
+  <div><b>A</b>秤上读到 W<sub>load</sub> ≥ minRice（默认 20 g）→ 换算米量、算目标水、开泵。这就是「投米即启动」。</div>
+  <div><b>B</b>剩余 = target − added ≤ leadG → 立刻关泵。注意此时<b>还没到量</b>，差的那部分是留给余流的。</div>
+  <div><b>C</b>稳定窗过完复核，缺得多于 1.5 g 且补泵次数 &lt; 3 → 再开一次泵。余流估偏了靠这一步兜回来。</div>
+  <div><b>D</b>误差收敛到 ±1.5 g 内（或补泵用尽）→ 完成、串口打印结果、软件去皮，回 IDLE 等下一把米。</div>
+  <div><b>E</b>任一保险触发（TIMEOUT / OVERFLOW / DRY-RUN）→ 强制停泵进 FAULT，必须人工干预才继续。</div>
+</div>
+
+<div class="sechead"><span class="n">04</span><h3>时序：一次完整注水里发生的所有延迟</h3><span class="ln"></span></div>
+<div class="statewrap">
+<svg viewBox="0 0 1040 330" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--mono)">
+  <line x1="70" y1="270" x2="1000" y2="270" stroke="#1a2a37" stroke-width="1"/>
+  <line x1="70" y1="60" x2="70" y2="270" stroke="#1a2a37" stroke-width="1"/>
+
+  <!-- 泵电平 -->
+  <text x="64" y="86" fill="#6d8296" font-size="10.5" text-anchor="end">PUMP</text>
+  <line x1="70" y1="100" x2="1000" y2="100" stroke="#16242f" stroke-width="1"/>
+  <path d="M 70,100 L 200,100 L 200,70 L 640,70 L 640,100 L 1000,100"
+        fill="none" stroke="#4cc9f0" stroke-width="2"/>
+  <text x="215" y="64" fill="#4cc9f0" font-size="10.5">ON</text>
+  <text x="660" y="95" fill="#6d8296" font-size="10.5">OFF</text>
+
+  <!-- 重量曲线 -->
+  <text x="64" y="215" fill="#6d8296" font-size="10.5" text-anchor="end">WEIGHT</text>
+  <!-- 目标线 -->
+  <line x1="70" y1="170" x2="1000" y2="170" stroke="#ffb020" stroke-width="1.2" stroke-dasharray="6 5"/>
+  <text x="990" y="164" fill="#ffb020" font-size="10.5" text-anchor="end">TARGET</text>
+  <!-- 基线 -->
+  <text x="80" y="266" fill="#3f566b" font-size="10">0 g</text>
+
+  <!-- 曲线 -->
+  <path d="M 120,224 L 200,224 L 600,182 Q 640,175 690,170.6 L 990,170.6"
+        fill="none" stroke="#7dd3fc" stroke-width="2.2"/>
+  <!-- 采样点 -->
+  <g fill="#4cc9f0">
+    <circle cx="230" cy="220.4" r="2.4"/><circle cx="286" cy="212" r="2.4"/>
+    <circle cx="342" cy="203.6" r="2.4"/><circle cx="398" cy="195.2" r="2.4"/>
+    <circle cx="454" cy="186.8" r="2.4"/><circle cx="510" cy="178.4" r="2.4"/>
+    <circle cx="566" cy="170" r="2.4"/>
+  </g>
+  <!-- 余流区间 -->
+  <rect x="600" y="150" width="90" height="120" fill="rgba(255,176,32,.07)"/>
+  <line x1="600" y1="150" x2="600" y2="270" stroke="#ffb020" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="690" y1="150" x2="690" y2="270" stroke="#ffb020" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="645" y="146" fill="#ffb020" font-size="10" text-anchor="middle">余流</text>
+  <!-- 稳定窗 -->
+  <rect x="690" y="150" width="70" height="120" fill="rgba(61,220,151,.06)"/>
+  <line x1="760" y1="150" x2="760" y2="270" stroke="#3ddc97" stroke-width="1" stroke-dasharray="4 4"/>
+  <text x="725" y="146" fill="#3ddc97" font-size="10" text-anchor="middle">稳定</text>
+
+  <!-- 事件竖线 -->
+  <g stroke="#3f566b" stroke-width="1" stroke-dasharray="3 4">
+    <line x1="120" y1="108" x2="120" y2="270"/>
+    <line x1="200" y1="106" x2="200" y2="270"/>
+    <line x1="640" y1="76" x2="640" y2="270"/>
+  </g>
+  <g fill="#6d8296" font-size="9.5" text-anchor="middle">
+    <text x="120" y="288">投米</text>
+    <text x="200" y="288">开泵</text>
+    <text x="600" y="304" fill="#ffb020">判定提前断流</text>
+    <text x="640" y="288">断流指令</text>
+    <text x="725" y="288" fill="#3ddc97">到量</text>
+    <text x="760" y="304" fill="#3ddc97">复核</text>
+  </g>
+
+  <!-- 提前量标注 -->
+  <path d="M 604,178 L 610,174 L 604,182 M 686,174 L 680,178"
+        fill="none" stroke="#ffb020" stroke-width="1"/>
+  <text x="645" y="196" fill="#ffb020" font-size="9.5" text-anchor="middle">leadG</text>
+</svg>
+</div>
+<div class="lead" style="margin-top:10px">
+  这张图里藏着整个项目最容易被忽略的一件事：<b>「断流指令」和「不再进水」不是同一个时刻。</b>
+  固件在第 600 个像素处就判定要停，但物理上泵到第 640 才真正断电，而管子里的存水要到第 690 才流干净。
+  如果按「读数到量就关泵」来写，那 3 段延迟加起来就是稳定超量 —— 通常 5~15 g，管长的话能超 40 g。
+  所以 <code style="font-family:var(--mono);color:#7dd3fc">leadG</code> 不是优化项，是必需品。
+</div>
+
+<div class="sechead"><span class="n">05</span><h3>配重映射：让秤读懂「多少米」</h3><span class="ln"></span></div>
+<div class="lead">
+  秤只会告诉你「现在台上压着多少克」。它不知道那是米、是砝码、还是一罐子。所谓<b>可编辑配重</b>，
+  就是给固件一条换算规则：<b>秤上读到 <code style="font-family:var(--mono);color:#7dd3fc">portionWeight</code> 克，就当成 <code style="font-family:var(--mono);color:#7dd3fc">portionRice</code> 克米</b>。
+  两种用法：一是用手边的已知配重（砝码、袋装盐、硬币堆）反推；二是操作者习惯用「一勺 / 一罐」当单位，
+  勺子的物理重量和它实际装的米量不一样，这时按比例改就行。
+</div>
+<div class="calc">
+  <div class="pane">
+    <label class="rw">
+      <div class="lbrow"><span>配重（秤上读到的克数）</span><b id="vPw">100 g</b></div>
+      <input type="range" id="inPw" min="10" max="600" step="5" value="100">
+    </label>
+    <label class="rw">
+      <div class="lbrow"><span>它代表多少米</span><b id="vPr">150 g</b></div>
+      <input type="range" id="inPr" min="10" max="900" step="5" value="150">
+    </label>
+    <label class="rw">
+      <div class="lbrow"><span>米水比（1 : ?）</span><b id="vRt">1.20</b></div>
+      <input type="range" id="inRt" min="100" max="200" step="5" value="120">
+    </label>
+    <label class="rw" style="margin-bottom:6px">
+      <div class="lbrow"><span>假设秤上实际读数（试算）</span></div>
+      <input type="range" id="inRw" min="0" max="600" step="5" value="100">
+    </label>
+    <div class="out">
+      换算系数 k = <span style="color:var(--orange)" id="oK">1.5000</span><br>
+      秤读 <span id="oRw" style="color:#7dd3fc">100 g</span> →
+      视为米 <span class="big" id="oRice">150.0</span> g<br>
+      该米量对应目标水 <span id="oWater" style="color:var(--orange)">180.0</span> g<br>
+      合计上台总重 <span id="oTotal" style="color:#d8e4f2">330.0</span> g
+    </div>
+    <div class="cmd">
+      <code id="oCmd">SET PORTION 100 150</code>
+      <button class="chip" id="btnCopyCmd">复制命令</button>
+    </div>
+  </div>
+  <div class="pane">
+    <canvas id="mapCv"></canvas>
+    <div style="font-size:11.5px;color:#6d8296;margin-top:10px;line-height:1.7;font-family:var(--mono)">
+      横轴 = 秤读到的克数 &nbsp;|&nbsp; 纵轴 = 固件认定的米量<br>
+      直线斜率即 k = portionRice / portionWeight
+    </div>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">06</span><h3>流体：那些让你超量的物理</h3><span class="ln"></span></div>
+<div class="fluid">
+  <div class="f">
+    <h5>泵启动延迟</h5>
+    <p>通电到第一滴水落下有 <b>50~300 ms</b>。叶轮要先加速，然后把泵腔里的空气排掉、建立扬程。
+    普通直流隔膜泵/离心泵都是这个数量级。影响：这段时间秤上完全没动静，所以
+    <b>DRY-RUN 判定不能设在 1 秒</b>，否则每次都误报。</p>
+  </div>
+  <div class="f">
+    <h5>管路存水（主要超量来源）</h5>
+    <p>管里装的水在断电后靠重力和惯性继续流。<b>1 米长的内径 8 mm 软管，存水约 50 cm³ ≈ 50 g</b>，
+    比整次的目标水量还大。所以工程铁律：<b>管口尽量靠近容器，管路越短越好，别留 U 型存水弯</b>。
+    这就是 leadMs 参数存在的理由，装好后实测一次再填进去。</p>
+  </div>
+  <div class="f">
+    <h5>水面冲击与气泡</h5>
+    <p>水柱砸在米面上会产生动态冲击载荷，秤的读数会瞬间虚高几克；米层吸水下沉也会让总重缓慢下漂。
+    所以<b>停泵后必须等 lead + 400 ms 再复核</b>，一停就判一定误判。等这顿量落定，才谈误差。</p>
+  </div>
+  <div class="f">
+    <h5>称重的机械滞后</h5>
+    <p>悬臂梁应变片本身响应很快，但<b>塑料台面和容器</b>的固有频率低。阶跃载荷下，
+    读数要 100~400 ms 才稳。台面越软、容器越轻、装水越多，振得越久。这也是为什么要取
+    <code style="font-family:var(--mono);color:#7dd3fc">get_units(3)</code> 三次平均而不是单次读数。</p>
+  </div>
+  <div class="f">
+    <h5>泵启动的电压塌陷</h5>
+    <p>小泵启动电流可达额定的 2~4 倍，共用电源时 12V 会被瞬间拽低，Arduino 若寄生在同一个
+    适配器上就可能复位。<b>这就是方案里那颗 1000 μF 电解电容的作用</b>：就近储能，把这个凹陷填掉。
+    另外泵的两根线上反并 1N4007，泄掉断电瞬间的电感反峰。</p>
+  </div>
+  <div class="f">
+    <h5>挂壁与滴漏</h5>
+    <p>表面张力会让最后一滴水挂在管口，几十秒后才落下，或者干脆不下。这带来 <b>±0.5 g</b>
+    的不可控项，也是为什么稳态判据取 1.5 g 而不是 0.1 g —— 追得太紧只是在追物理噪声。</p>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">07</span><h3>执行器二选一：潜水泵 还是 夹管阀</h3></div>
+<div class="panel" style="padding:0;overflow:hidden">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:0">
+    <div style="padding:16px 18px;border-right:1px solid #16212c">
+      <div style="font-size:13px;font-weight:700;color:#4cc9f0;margin-bottom:8px">A · 12V 潜水泵（当前方案）</div>
+      <div style="font-size:12px;color:#93a7ba;line-height:1.85">
+        泵整个泡在水里，靠叶轮把水打上去。<b style="color:#cfe0ee">电路最简单</b>：继电器 COM/NO 串在泵的 12V 回路里，
+        固件给 D8 一个高电平就出水。不需要落差，水箱放地上就能工作。流量 1–3 L/min 可调，实测 12 g/s。
+      </div>
+      <div style="margin-top:9px;font-size:11.5px;color:#7d8fa2;line-height:1.7">
+        代价是<b style="color:#ffb020">卫生</b>：泵体、叶轮、密封圈都是藏污的死角，拆洗要动螺丝。
+        另外断电只是停转，管路里的存水还会靠着虹吸继续往下滴。
+      </div>
+    </div>
+    <div style="padding:16px 18px;background:#0b1218">
+      <div style="font-size:13px;font-weight:700;color:#3ddc97;margin-bottom:8px">B · 电磁夹管阀 + 重力（替代方案）</div>
+      <div style="font-size:12px;color:#93a7ba;line-height:1.85">
+        水箱挂在 20–30 cm 高处，食品级软管垂下来，<b style="color:#cfe0ee">夹管阀从外面把软管夹扁</b>来断流 ——
+        阀体不碰水，接触水的只有一根软管，脏了整根换掉。
+      </div>
+      <div style="margin-top:9px;font-size:11.5px;color:#7d8fa2;line-height:1.7">
+        选型硬条件：<b style="color:#ff4d5e">必须常闭型</b>（断电就夹死），通电才松开出水。
+        <b style="color:#ff4d5e">必须是能过食品级软管的规格</b>（DN8–DN12），别买成管道阀。
+        接线和泵完全一样：12V 经继电器 COM/NO，固件一行不用改。
+      </div>
+    </div>
+  </div>
+  <table style="width:100%;border-collapse:collapse;font-size:12px;border-top:1px solid #16212c">
+    <tr style="color:#5c7488"><th style="padding:7px 18px;text-align:left;font-weight:600">对比项</th><th style="padding:7px 10px;text-align:left;font-weight:600">潜水泵</th><th style="padding:7px 10px;text-align:left;font-weight:600">夹管阀 + 重力</th></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">接触水的零件</td><td style="padding:6px 10px;color:#ffb020;border-top:1px solid #111a24">泵体 / 叶轮 / 密封圈</td><td style="padding:6px 10px;color:#3ddc97;border-top:1px solid #111a24">只有一根软管，可整根换</td></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">断电后的行为</td><td style="padding:6px 10px;color:#ffb020;border-top:1px solid #111a24">停转，但管内余水仍会流</td><td style="padding:6px 10px;color:#3ddc97;border-top:1px solid #111a24">物理夹死，一滴不漏</td></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">关断响应</td><td style="padding:6px 10px;color:#93a7ba;border-top:1px solid #111a24">停转即止，50–300 ms</td><td style="padding:6px 10px;color:#3ddc97;border-top:1px solid #111a24">30–100 ms，更快</td></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">需不需要落差</td><td style="padding:6px 10px;color:#3ddc97;border-top:1px solid #111a24">不需要，水箱放地上</td><td style="padding:6px 10px;color:#ffb020;border-top:1px solid #111a24">必须 20–30 cm，产品形态被锁死</td></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">流量</td><td style="padding:6px 10px;color:#93a7ba;border-top:1px solid #111a24">1–3 L/min，可调</td><td style="padding:6px 10px;color:#ffb020;border-top:1px solid #111a24">由落差定，8–15 g/s，会随水位变</td></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">噪音</td><td style="padding:6px 10px;color:#ffb020;border-top:1px solid #111a24">有（嗡嗡声 + 水流）</td><td style="padding:6px 10px;color:#3ddc97;border-top:1px solid #111a24">只有咔一声</td></tr>
+    <tr><td style="padding:6px 18px;color:#93a7ba;border-top:1px solid #111a24">成本</td><td style="padding:6px 10px;color:#3ddc97;border-top:1px solid #111a24">¥15–35</td><td style="padding:6px 10px;color:#ffb020;border-top:1px solid #111a24">¥25–50（还要多一个高位水箱架）</td></tr>
+  </table>
+  <div style="padding:12px 18px;background:#0d1a22;border-top:1px solid #16212c;font-size:11.5px;color:#7d8fa2;line-height:1.75">
+    <b style="color:#4cc9f0">闭环在这里的价值不变</b>：雾化到什么程度由秤说了算，所以执行器换成哪一种都不影响结果 ——
+    流量变了，固件里的「提前断流」会用实测值自动跟。真正决定精度的一直是秤，不是泵。
+  </div>
+</div>
+
+<div class="sechead"><span class="n">08</span><h3>保险清单</h3><span class="ln"></span></div>
+<div class="panel">
+  <table class="tk">
+    <thead><tr><th>保险</th><th>判据</th><th>动作</th><th>防的是什么</th></tr></thead>
+    <tbody>
+      <tr><td>TIMEOUT</td><td>elapsed &gt; timeoutMs（默认 20000 ms）</td><td>停泵 + FAULT</td>
+          <td>管子脱落、泵空转、传感器卡死导致的无限注水</td></tr>
+      <tr><td>OVERFLOW</td><td>total &gt; maxTotal（默认 3000 g）</td><td>停泵 + FAULT</td>
+          <td>容器装不下、称重接近量程上限、配重算错</td></tr>
+      <tr><td>DRY-RUN</td><td>elapsed &gt; 3 s 且 added &lt; 0.5 g</td><td>停泵 + FAULT</td>
+          <td>泵堵了 / 没插电 / 水箱空了 —— 干转烧泵</td></tr>
+      <tr><td>TOPUP 上限</td><td>补泵次数 &gt; 3</td><td>放弃补泵，按当前值结算</td>
+          <td>余流估得离谱导致反复开泵、来回震荡</td></tr>
+      <tr><td>自恢复保险丝</td><td>电流 &gt; 1.2 × 泵额定</td><td>硬件断开，冷却自恢复</td>
+          <td>泵堵转、线间短路</td></tr>
+      <tr><td>1N4007</td><td>断电瞬间反峰</td><td>续流泄放</td>
+          <td>电感反峰击穿继电器触点 / 干扰 MCU</td></tr>
+    </tbody>
+  </table>
+</div>
+</section>
+<script>
+window.addEventListener('DOMContentLoaded',()=>{
+  const pw=document.getElementById('inPw'), pr=document.getElementById('inPr');
+  const rt=document.getElementById('inRt'), rw=document.getElementById('inRw');
+  if(!pw) return;
+  const cv=document.getElementById('mapCv'), cx=cv.getContext('2d');
+
+  function vals(){
+    return { pw:+pw.value, pr:+pr.value, rt:+rt.value/100, rw:+rw.value };
+  }
+  function drawMap(){
+    const v=vals();
+    const k=v.pr/v.pw;
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+    const w0=cv.clientWidth||520;
+    if(!w0) return;
+    const h0=Math.round(w0*0.46);
+    cv.width=Math.round(w0*dpr); cv.height=Math.round(h0*dpr);
+    cv.style.height=h0+'px';
+    cx.setTransform(dpr,0,0,dpr,0,0);
+
+    const padL=52,padR=18,padT=16,padB=30;
+    const iw=w0-padL-padR, ih=h0-padT-padB;
+    const maxX=Math.max(200,v.pw*1.25);
+    const maxY=Math.max(200,maxX*k*0.85);
+
+    cx.clearRect(0,0,w0,h0);
+    cx.fillStyle='#070b10'; cx.fillRect(0,0,w0,h0);
+
+    cx.strokeStyle='rgba(35,55,72,.85)'; cx.lineWidth=1;
+    cx.fillStyle='#3f566b'; cx.font='10px ui-monospace,monospace';
+    for(let i=0;i<=4;i++){
+      const y=padT+ih*i/4, x=padL+iw*i/4;
+      cx.beginPath(); cx.moveTo(padL,y); cx.lineTo(padL+iw,y); cx.stroke();
+      cx.beginPath(); cx.moveTo(x,padT); cx.lineTo(x,padT+ih); cx.stroke();
+      cx.textAlign='right'; cx.fillText(Math.round(maxY*(1-i/4)),padL-6,y+3);
+      cx.textAlign='center'; cx.fillText(Math.round(maxX*i/4),x,padT+ih+14);
+    }
+    cx.strokeStyle='#2a4256'; cx.lineWidth=1.4;
+    cx.beginPath(); cx.moveTo(padL,padT); cx.lineTo(padL,padT+ih); cx.lineTo(padL+iw,padT+ih); cx.stroke();
+
+    /* 参考线：k = 1 */
+    cx.strokeStyle='rgba(120,150,175,.35)'; cx.setLineDash([4,4]); cx.lineWidth=1;
+    const x1=Math.min(maxX,maxY), y1=x1;
+    cx.beginPath(); cx.moveTo(padL,padT+ih);
+    cx.lineTo(padL+(x1/maxX)*iw,padT+ih-(y1/maxY)*ih); cx.stroke();
+    cx.setLineDash([]);
+
+    /* 映射直线 */
+    const ex=Math.min(maxX,maxY/k);
+    const X=x=>padL+(x/maxX)*iw;
+    const Y=y=>padT+ih-(y/maxY)*ih;
+    cx.strokeStyle='#4cc9f0'; cx.lineWidth=2.2;
+    cx.beginPath(); cx.moveTo(X(0),Y(0)); cx.lineTo(X(ex),Y(ex*k)); cx.stroke();
+    cx.strokeStyle='rgba(76,201,240,.16)'; cx.lineWidth=7;
+    cx.beginPath(); cx.moveTo(X(0),Y(0)); cx.lineTo(X(ex),Y(ex*k)); cx.stroke();
+
+    /* 当前试算点 */
+    const px=Math.min(v.rw,maxX), py=Math.min(v.rw*k,maxY);
+    cx.strokeStyle='rgba(255,176,32,.6)'; cx.lineWidth=1; cx.setLineDash([3,3]);
+    cx.beginPath(); cx.moveTo(X(px),Y(py)); cx.lineTo(X(px),Y(0)); cx.stroke();
+    cx.beginPath(); cx.moveTo(X(px),Y(py)); cx.lineTo(X(0),Y(py)); cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle='#ffb020';
+    cx.beginPath(); cx.arc(X(px),Y(py),4.5,0,6.3); cx.fill();
+    cx.strokeStyle='#070b10'; cx.lineWidth=1.5; cx.stroke();
+
+    /* 当前配重标记 */
+    const qx=Math.min(v.pw,maxX);
+    cx.strokeStyle='#a78bfa'; cx.lineWidth=1.4; cx.setLineDash([5,4]);
+    cx.beginPath(); cx.moveTo(X(qx),padT+ih); cx.lineTo(X(qx),Y(qx*k)); cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle='#a78bfa';
+    cx.beginPath(); cx.arc(X(qx),Y(qx*k),3.4,0,6.3); cx.fill();
+
+    cx.fillStyle='#6d8296'; cx.font='10px ui-monospace,monospace'; cx.textAlign='left';
+    cx.fillText('配重 g',padL+iw-40,padT+ih+24);
+    cx.save(); cx.translate(12,padT+40); cx.rotate(-Math.PI/2);
+    cx.fillText('米 g',0,0); cx.restore();
+  }
+
+  function sync(){
+    const v=vals();
+    const k=v.pr/v.pw;
+    document.getElementById('vPw').textContent=v.pw+' g';
+    document.getElementById('vPr').textContent=v.pr+' g';
+    document.getElementById('vRt').textContent=v.rt.toFixed(2);
+    document.getElementById('oK').textContent=k.toFixed(4);
+    document.getElementById('oRw').textContent=v.rw+' g';
+    const rice=v.rw*k, water=rice*v.rt;
+    document.getElementById('oRice').textContent=rice.toFixed(1);
+    document.getElementById('oWater').textContent=water.toFixed(1);
+    document.getElementById('oTotal').textContent=(v.rw+water).toFixed(1);
+    document.getElementById('oCmd').textContent='SET PORTION '+v.pw+' '+v.pr;
+    drawMap();
+  }
+  [pw,pr,rt,rw].forEach(el=>el.addEventListener('input',sync));
+
+  document.getElementById('btnCopyCmd').addEventListener('click',e=>{
+    const t=document.getElementById('oCmd').textContent;
+    const done=()=>{ e.target.textContent='已复制'; setTimeout(()=>e.target.textContent='复制命令',1200); };
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(done,()=>{});
+    }else{
+      const ta=document.createElement('textarea'); ta.value=t;
+      document.body.appendChild(ta); ta.select();
+      try{document.execCommand('copy');done();}catch(_){}
+      document.body.removeChild(ta);
+    }
+  });
+
+  window.addEventListener('resize',drawMap);
+  window.addEventListener('tabchange',e=>{ if(e.detail==='mech') setTimeout(drawMap,20); });
+  sync();
+});
+</script>
+
+<!-- ==================== ④ 固件 ==================== -->
+<section class="tab" id="tab-fw">
+<style>
+#tab-fw .lead{font-size:13px;line-height:1.85;color:#9fb3c8;max-width:1120px}
+#tab-fw .lead b{color:var(--txt)}
+#tab-fw .sechead{display:flex;align-items:center;gap:10px;margin:26px 0 10px}
+#tab-fw .sechead .n{font-family:var(--mono);font-size:11px;color:var(--cyan);
+  border:1px solid #1d4a5c;border-radius:5px;padding:2px 7px}
+#tab-fw .sechead h3{font-size:15px}
+#tab-fw .sechead .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+#tab-fw .fwgrid{display:grid;grid-template-columns:250px minmax(0,1fr);gap:14px;align-items:start}
+@media (max-width:940px){#tab-fw .fwgrid{grid-template-columns:1fr}}
+#tab-fw .outline{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:10px;position:sticky;top:12px}
+#tab-fw .outline .oh{font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  letter-spacing:.08em;text-transform:uppercase;padding:2px 6px 8px}
+#tab-fw .outline button{display:flex;justify-content:space-between;align-items:center;width:100%;
+  gap:6px;background:none;border:1px solid transparent;border-radius:6px;cursor:pointer;
+  font-family:var(--mono);font-size:11.5px;color:#8ba0b5;padding:5px 8px;text-align:left}
+#tab-fw .outline button:hover{background:#0d1721;color:var(--txt);border-color:var(--line)}
+#tab-fw .outline button.on{background:#0b2a33;border-color:#1d4a5c;color:var(--cyan)}
+/* 两行排：函数名 + 中文说明，避免窄栏截断 */
+#tab-fw .outline button .t{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+#tab-fw .outline button .t b{font-weight:600;font-size:11.5px;color:inherit;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tab-fw .outline button .t i{font-style:normal;font-size:9.5px;color:#4d6b82;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tab-fw .outline button.on .t i{color:#5fa8bf}
+#tab-fw .outline button .ln{flex:none;color:#33485a;font-size:10px;padding-left:4px}
+#tab-fw .outline .sep{height:1px;background:#101a24;margin:6px 4px}
+
+#tab-fw .codebox{background:#070b10;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+#tab-fw .codebar{display:flex;align-items:center;gap:10px;padding:8px 12px;
+  border-bottom:1px solid var(--line);background:#0a1018}
+#tab-fw .codebar .fn{font-family:var(--mono);font-size:11.5px;color:#7dd3fc}
+#tab-fw .codebar .meta{font-family:var(--mono);font-size:10.5px;color:#3f566b;margin-left:auto}
+#tab-fw .code{max-height:780px;overflow:auto;font-family:var(--mono);font-size:11.5px;
+  line-height:1.62;padding:8px 0}
+#tab-fw .code .row{display:flex;min-width:max-content}
+#tab-fw .code .row:hover{background:#0c141d}
+#tab-fw .code .row.hl{background:#132430;box-shadow:inset 3px 0 0 var(--cyan)}
+#tab-fw .code .n{flex:0 0 54px;text-align:right;padding-right:14px;color:#2a3c4a;
+  user-select:none;font-size:10.5px;padding-top:1px}
+#tab-fw .code .c{padding-right:20px;white-space:pre;color:#bccbd9}
+#tab-fw .code .k{color:#4cc9f0;font-weight:600}
+#tab-fw .code .t{color:#a78bfa}
+#tab-fw .code .num{color:#ffb020}
+#tab-fw .code .str{color:#3ddc97}
+#tab-fw .code .cm{color:#4a6072;font-style:italic}
+#tab-fw .code .pp{color:#ff8792}
+
+#tab-fw .keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+#tab-fw .keys .k{background:#0b1219;border:1px solid var(--line);border-radius:9px;padding:13px 15px}
+#tab-fw .keys .k h5{font-family:var(--mono);font-size:12px;color:var(--cyan);margin-bottom:8px}
+#tab-fw .keys .k p{font-size:12.5px;color:#8ba0b5;line-height:1.8}
+#tab-fw .keys .k p b{color:#d8e4f2}
+#tab-fw .keys .k code{font-family:var(--mono);font-size:11.5px;color:#7dd3fc;
+  background:#070b10;padding:1px 5px;border-radius:4px}
+
+#tab-fw .gen{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+#tab-fw .gen label{display:block}
+#tab-fw .gen .lbl{font-family:var(--mono);font-size:11px;color:#7891a6;margin-bottom:5px}
+#tab-fw .gen input{width:100%;background:#070b10;border:1px solid var(--line);border-radius:6px;
+  color:var(--txt);font-family:var(--mono);font-size:12.5px;padding:7px 9px}
+#tab-fw .gen input:focus{outline:none;border-color:var(--cyan)}
+#tab-fw pre#genOut{background:#070b10;border:1px solid var(--line);border-radius:8px;
+  padding:14px;font-family:var(--mono);font-size:12px;line-height:1.8;color:#9fdbf7;
+  overflow:auto;max-height:420px;margin-top:12px}
+
+#tab-fw table.cmds{width:100%;border-collapse:collapse;font-size:12.5px}
+#tab-fw table.cmds th{text-align:left;font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;border-bottom:1px solid var(--line)}
+#tab-fw table.cmds td{padding:8px 10px;border-bottom:1px solid #101a24;color:#9fb3c8;line-height:1.6}
+#tab-fw table.cmds td:first-child{font-family:var(--mono);color:#7dd3fc;white-space:nowrap}
+#tab-fw ol.steps{margin:6px 0 0 0;padding-left:20px;font-size:12.5px;color:#9fb3c8;line-height:2}
+#tab-fw ol.steps li::marker{color:var(--cyan);font-family:var(--mono);font-size:11px}
+#tab-fw ol.steps b{color:#d8e4f2}
+#tab-fw .warnbox{background:#1a0f12;border:1px solid #4a2028;border-left:3px solid var(--red);
+  border-radius:8px;padding:12px 15px;font-size:12.5px;color:#c8a0a6;line-height:1.8;margin-top:12px}
+#tab-fw .warnbox b{color:#ff8792}
+</style>
+
+<div class="lead">
+  固件做四件事：<b>读秤</b>（HX711，200 ms 一次）、<b>选档</b>（4×4 键盘 8 档配方，按键直接切米水比）、
+  <b>算量</b>（配重 → 米 → 目标水 → 提前量）、<b>控泵</b>（继电器干接点）。所有参数都能从串口或键盘现场改，
+  写进 EEPROM 掉电不丢。<b style="color:#ffb020">现在 716 行</b>，下面是完整源码，逐行可读可抄。
+</div>
+
+<div class="sechead"><span class="n">01</span><h3>源码</h3><span class="ln"></span></div>
+<div class="fwgrid">
+  <div class="outline">
+    <div class="oh">跳到函数</div>
+    <div id="fwOutline"></div>
+  </div>
+  <div class="codebox">
+    <div class="codebar">
+      <span class="fn">ricemix_firmware.ino</span>
+      <span class="meta" id="fwMeta"></span>
+      <button class="chip" id="btnCopyFw" style="margin-left:auto">复制全文</button>
+    </div>
+    <div class="code" id="fwCode"></div>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">02</span><h3>四个关键点</h3><span class="ln"></span></div>
+<div class="keys">
+  <div class="k">
+    <h5>weightToRice() — 配重映射</h5>
+    <p><code>return w * (cfg.portionRice / cfg.portionWeight);</code>
+    一条过原点直线。改这两个参数，等于改「这一坨东西算多少米」。<b>改完必须 SAVE</b>，
+    否则断电回默认值 100 g ↔ 100 g。</p>
+  </div>
+  <div class="k">
+    <h5>updateFlow() — 在线流量</h5>
+    <p>用相邻两次采样的重量差除以时间间隔得到瞬时流量，再过一阶低通
+    <code>flowEst*0.7 + inst*0.3</code>。<b>负值直接归零</b>（水面晃动会让读数回落），
+    上限卡在 4 倍标称，防止一次抖动把提前量算爆。</p>
+  </div>
+  <div class="k">
+    <h5>stepFill() — 提前断流</h5>
+    <p><code>if (remain &lt;= leadG) 停泵</code>。leadG = 实测流量 × (leadMs + 200) / 1000。
+    这里 +200 是补上采样周期本身造成的判断滞后 —— <b>你知道该停的时候，其实已经晚了一个周期</b>。</p>
+  </div>
+  <div class="k">
+    <h5>stepSettle() — 稳定窗复核</h5>
+    <p>停泵后等 <code>leadMs + 400 ms</code>，让余流流完、秤台静止，再算一次差额。
+    差得多于 1.5 g 且补泵次数没超 → 再开一次。<b>这一步把余流估算误差吃掉了。</b></p>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">03</span><h3>参数生成器</h3><span class="ln"></span></div>
+<div class="lead" style="margin-bottom:12px">
+  改下面的数字，直接生成可以粘进串口监视器（或改到 <code style="font-family:var(--mono);color:#7dd3fc">cfgDefault()</code>）的内容。
+  <b>配重那一行就是「可编辑配重代表多少米」的入口。</b>
+</div>
+<div class="gen">
+  <label><div class="lbl">配重 portionWeight (g)</div><input id="gPw" type="number" value="100" min="1" step="1"></label>
+  <label><div class="lbl">代表米 portionRice (g)</div><input id="gPr" type="number" value="150" min="1" step="1"></label>
+  <label><div class="lbl">米水比 ratio</div><input id="gRt" type="number" value="1.20" min="0.5" max="3" step="0.05"></label>
+  <label><div class="lbl">超时 timeoutMs</div><input id="gTo" type="number" value="20000" min="2000" step="500"></label>
+  <label><div class="lbl">最小投米 minRice (g)</div><input id="gMr" type="number" value="20" min="1" step="1"></label>
+  <label><div class="lbl">总重上限 maxTotal (g)</div><input id="gMx" type="number" value="3000" min="100" step="100"></label>
+  <label><div class="lbl">余流补偿 leadMs</div><input id="gLd" type="number" value="200" min="0" step="10"></label>
+  <label><div class="lbl">标定系数 calFactor</div><input id="gCf" type="number" value="420" min="1" step="1"></label>
+</div>
+<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+  <button class="chip on" data-gen="cmd">串口命令</button>
+  <button class="chip" data-gen="cpp">C 结构体</button>
+  <button class="chip" id="btnCopyGen">复制</button>
+</div>
+<pre id="genOut"></pre>
+
+<div class="sechead"><span class="n">04</span><h3>串口命令表</h3><span class="ln"></span></div>
+<div class="panel"><table class="cmds">
+  <thead><tr><th>命令</th><th>作用</th><th>示例</th></tr></thead>
+  <tbody>
+    <tr><td>HELP</td><td>打印全部命令</td><td>HELP</td></tr>
+    <tr><td>STATUS</td><td>当前重量、状态、配置、误差</td><td>STATUS</td></tr>
+    <tr><td>SET PORTION a b</td><td><b>配重 a 克代表米 b 克</b>（核心诉求）</td><td>SET PORTION 100 150</td></tr>
+    <tr><td>SET RATIO x</td><td>米水比 1:x</td><td>SET RATIO 1.35</td></tr>
+    <tr><td>SET TIMEOUT ms</td><td>注水超时上限</td><td>SET TIMEOUT 15000</td></tr>
+    <tr><td>SET MINRICE g</td><td>低于这个重量不启动</td><td>SET MINRICE 25</td></tr>
+    <tr><td>SET MAXTOTAL g</td><td>总重硬上限（防溢）</td><td>SET MAXTOTAL 2500</td></tr>
+    <tr><td>SET FLOW g/s</td><td>流量初值（仅在测到之前用）</td><td>SET FLOW 14</td></tr>
+    <tr><td>SET LEAD ms</td><td>余流补偿时间</td><td>SET LEAD 350</td></tr>
+    <tr><td>SET TRIG 0/1</td><td>继电器高电平还是低电平触发</td><td>SET TRIG 0</td></tr>
+    <tr><td>CAL &lt;已知克数&gt;</td><td>空载清零后放已知重量，自动算标定系数</td><td>CAL 500</td></tr>
+    <tr><td>ZERO</td><td>软件去皮（不动硬件）</td><td>ZERO</td></tr>
+    <tr><td>RUN / STOP</td><td>放行 / 禁止自动开泵</td><td>STOP</td></tr>
+    <tr><td>MANUAL &lt;米克数&gt;</td><td>不管秤上有什么，按这个米量放一次水</td><td>MANUAL 180</td></tr>
+    <tr><td>SIM &lt;g&gt; / SIMOFF</td><td>软件模拟读数，无硬件也能跑逻辑</td><td>SIM 160</td></tr>
+    <tr><td>SAVE / LOAD / RESETCFG</td><td>存 EEPROM / 读 EEPROM / 恢复出厂</td><td>SAVE</td></tr>
+  </tbody>
+</table></div>
+
+
+<div class="sechead"><span class="n">05</span><h3>4×4 键盘键位表（8 线，不占泵和 LED）</h3></div>
+<div class="panel" style="padding:16px 18px">
+  <div style="display:grid;grid-template-columns:1.05fr 1fr;gap:22px;align-items:start">
+    <div>
+      <div style="font-size:12px;color:#7d8fa2;line-height:1.7;margin-bottom:10px">
+        行线 <b style="color:#4cc9f0;font-family:var(--mono)">D2 / D3 / D4 / D5</b>，列线
+        <b style="color:#4cc9f0;font-family:var(--mono)">D6 / D7 / D9 / D10</b>。
+        扫的时候逐行拉低、读列，<b style="color:#ffb020">D8（泵）和 D13（LED）必须让开</b>，所以第 8、11 号引脚跳过。
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <tr>
+          <th style="padding:6px 8px;border-bottom:1px solid #1a2531;color:#5c7488;text-align:left;font-weight:600">行 \ 列</th>
+          <th style="padding:6px 8px;border-bottom:1px solid #1a2531;color:#5c7488;text-align:left;font-weight:600">C1 → D6</th>
+          <th style="padding:6px 8px;border-bottom:1px solid #1a2531;color:#5c7488;text-align:left;font-weight:600">C2 → D7</th>
+          <th style="padding:6px 8px;border-bottom:1px solid #1a2531;color:#5c7488;text-align:left;font-weight:600">C3 → D9</th>
+          <th style="padding:6px 8px;border-bottom:1px solid #1a2531;color:#5c7488;text-align:left;font-weight:600">C4 → D10</th>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#6fb8d6;font-family:var(--mono)">R1 → D2</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">东北米 <span style="font-family:var(--mono);color:#4d6b82">k=0</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">泰国米 <span style="font-family:var(--mono);color:#4d6b82">k=1</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">软饭 <span style="font-family:var(--mono);color:#4d6b82">k=2</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">烂饭 <span style="font-family:var(--mono);color:#4d6b82">k=3</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#6fb8d6;font-family:var(--mono)">R2 → D3</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">稠粥 <span style="font-family:var(--mono);color:#4d6b82">k=4</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">稀饭 <span style="font-family:var(--mono);color:#4d6b82">k=5</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">自定义 A <span style="font-family:var(--mono);color:#4d6b82">k=6</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">自定义 B <span style="font-family:var(--mono);color:#4d6b82">k=7</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#6fb8d6;font-family:var(--mono)">R3 → D4</td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#ffb020">启动 <span style="font-family:var(--mono);color:#4d6b82">k=8</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#ff4d5e">停止 <span style="font-family:var(--mono);color:#4d6b82">k=9</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">去皮 <span style="font-family:var(--mono);color:#4d6b82">k=10</span></td>
+          <td style="padding:6px 8px;border-bottom:1px solid #131c26;color:#cfe0ee">状态 <span style="font-family:var(--mono);color:#4d6b82">k=11</span></td>
+        </tr>
+        <tr>
+          <td style="padding:6px 8px;color:#6fb8d6;font-family:var(--mono)">R4 → D5</td>
+          <td style="padding:6px 8px;color:#cfe0ee">校准 <span style="font-family:var(--mono);color:#4d6b82">k=12</span></td>
+          <td style="padding:6px 8px;color:#cfe0ee">加水 100g <span style="font-family:var(--mono);color:#4d6b82">k=13</span></td>
+          <td style="padding:6px 8px;color:#cfe0ee">存参数 <span style="font-family:var(--mono);color:#4d6b82">k=14</span></td>
+          <td style="padding:6px 8px;color:#cfe0ee">恢复出厂 <span style="font-family:var(--mono);color:#4d6b82">k=15</span></td>
+        </tr>
+      </table>
+      <div style="margin-top:8px;font-size:11px;color:#5c7488;line-height:1.7">
+        键码 <code style="font-family:var(--mono);color:#7dd3fc">k = 行×4 + 列</code>，行、列都从 0 数 ——
+        <code style="font-family:var(--mono);color:#7dd3fc">kpScan()</code> 返回的就是这个 0–15 的整数，
+        <code style="font-family:var(--mono);color:#7dd3fc">doKey(k)</code> 里 <code style="font-family:var(--mono);color:#7dd3fc">k&lt;8</code> 走选配方，8 以上走功能键。
+      </div>
+    </div>
+    <div>
+      <div style="background:#0b1218;border:1px solid #1a2531;border-radius:9px;padding:14px 16px">
+        <div style="font-size:12px;color:#7d8fa2;line-height:1.85">
+          <b style="color:var(--cyan)">为什么配方是三元组而不是一个数</b><br>
+          米水比一变大，注水量就跟着涨：100 g 米 × 1.2 要 120 g 水，12 g/s 的泵跑 10 秒；
+          × 9 要 900 g，得跑 <b style="color:#ffb020">75 秒</b>。
+          固件原来把超时写死 20 秒 —— 做粥一定在半路被掐断。
+          所以每档必须同时给 <code style="font-family:var(--mono);color:#7dd3fc">{ratio, timeoutMs, maxTotal}</code>，
+          换了档三个一起换。
+        </div>
+        <div style="margin-top:10px;font-size:11.5px;color:#5c7488;line-height:1.7">
+          键盘按下后 LED 闪 (档号+1) 次确认，参数立刻写 EEPROM，拔电不丢。
+          想微调就串口 <code style="font-family:var(--mono);color:#7dd3fc">SET RATIO 1.25</code> 再长按该档键存回去。
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="sechead"><span class="n">06</span><h3>烧录与首测</h3><span class="ln"></span></div>
+<div class="panel" style="padding:16px 18px">
+  <ol class="steps">
+    <li>Arduino IDE → 库管理器装 <b>HX711</b>（bogde 版）。EEPROM 是 IDE 自带的，不用装。</li>
+    <li>板子选 <b>Arduino Uno</b>，端口选对，点上传。编译约 20 s。</li>
+    <li>打开串口监视器，波特率 <b>9600</b>，行尾选「换行」。</li>
+    <li>先只接 HX711，<b>不接泵</b>。串口敲 <b>HELP</b> 确认回显正常，敲 <b>STATUS</b> 看重量读数。</li>
+    <li>空载敲 <b>ZERO</b>。放一个已知重量（500 g 袋装米最方便），敲 <b>CAL 500</b>，再看 STATUS 应显示接近 500 g。</li>
+    <li>敲 <b>SAVE</b> 把标定结果写进 EEPROM，拔电再上电确认没丢。</li>
+    <li>单独测继电器：只接继电器和 LED，敲 <b>MANUAL 100</b>，应听到「咔哒」一声、LED 亮起，几秒后关闭。</li>
+    <li>接泵、接独立 12 V 电源、<b>务必共地</b>，人在旁边看着，首次只放 50 g 米试一轮。</li>
+    <li>量一次实际余流：记下断流到水真的不流了隔多久，把它填进 <b>SET LEAD</b>，再 <b>SAVE</b>。</li>
+  </ol>
+</div>
+<div class="warnbox">
+  <b>三个会烧东西的顺序错误：</b>
+  ① 先接泵再接 5 V —— 泵反峰可能顺着共地线打进 MCU，顺序应为 <b>先低压控制侧、后 12 V 功率侧</b>；
+  ② 忘了共地 —— 继电器指示灯亮但泵不转，或泵常转不受控；
+  ③ 泵直接吃 Arduino 的 5 V —— 启动电流远超 USB 500 mA，会掉电复位甚至烧稳压器。
+</div>
+
+<script type="text/plain" id="fwSrc">
+/* =====================================================================
+ *  RiceMix — 继电器驱动式闭环米水配比控制器
+ *  硬件：Arduino Uno R3 + HX711(5kg 悬臂梁) + 单路光耦继电器 + 12V 直流水泵
+ *
+ *  核心机制（闭环，不依赖"流量恒定"）：
+ *    1) 称出容器内米重 -> 按米水比算出目标加水量 targetWater
+ *    2) 开泵，每 200ms 读一次总重，实时算已加水量
+ *    3) 用实测流量提前断流（管内有残流，关早了不够、关晚了就溢）
+ *    4) 回稳后复核，不够就补泵（最多 3 次）
+ *    5) 三重保险：注水超时 / 干抽检测 / 总重上限
+ *
+ *  「可编辑配重代表多少米」：
+ *    传感器读到的物理配重(g) 与 它代表的米量(g) 用一条过原点直线映射：
+ *        riceGrams = 配重(g) × (portionRice / portionWeight)
+ *    两个参数都能用串口现场改，SAVE 存进 EEPROM 掉电不丢。
+ *    例：SET PORTION 100 150  ->  100g 配重(量杯/砝码/一袋米) 代表 150g 米
+ *    例：SET PORTION 200 200  ->  1:1 直读
+ *
+ *  串口命令一览（波特率 9600，行尾 \n）：
+ *    HELP                      打印命令表
+ *    STATUS                    打印当前状态与全部参数
+ *    SET PORTION <w> <rice>    改「配重 w 克代表 rice 克米」
+ *    SET RATIO <x>             改米水比（1.2 = 1 斤米 1.2 斤水）
+ *    SET TIMEOUT <ms>          注水超时（防溢水保险）
+ *    SET MINRICE <g>           最小识米量（防噪声误触发）
+ *    SET MAXTOTAL <g>          总重上限（二级溢出保护）
+ *    SET FLOW <g/s>            泵的预估流量（仅为提前断流的初值，运行中会被实测覆盖）
+ *    SET LEAD <ms>             停泵余流延迟（管子里的水不会立刻停）
+ *    SET TRIG <0|1>            继电器触发电平 0=LOW 1=HIGH
+ *    CAL <已知克数>            用已知重量的东西标定 HX711 比例系数
+ *    ZERO                      去皮（把当前读数当 0）
+ *    MANUAL <米克数>           跳过称重，直接按指定米量开始一次配比
+ *    SIM <克数>                进入软件模拟称重（无硬件也能跑逻辑）
+ *    SIMOFF                    退出模拟，回到真实 HX711
+ *    RUN / STOP                放行 / 急停
+ *    SAVE                      参数写 EEPROM
+ *    LOAD                      从 EEPROM 读参数
+ *    RESETCFG                  参数恢复出厂值
+ *    PRESET <0-7>              直接切到第 N 档配方（键盘也能切）
+ *    RECIPES                   列出全部 8 档配方
+ *
+ *  4x4 矩阵键盘（行 D2-D5 / 列 D6,D7,D9,D10）：
+ *    行0  东北米 泰国米 软饭 烂饭      行1  稠粥 稀饭 自定义A 自定义B
+ *    行2  启动   停止   去皮 状态      行3  校准 手动加水100g 存参数 恢复出厂
+ *    短按选配方，LED 闪 (档号+1) 次确认；长按模式键 800ms = 把当前参数存进该档
+ * ===================================================================== */
+
+#include <HX711.h>
+#include <EEPROM.h>
+
+/* ---------------- 1. 引脚 ---------------- */
+#define PIN_HX_DT   A1
+#define PIN_HX_SCK  A0
+#define PIN_PUMP    8
+#define PIN_LED     13
+
+/* 4x4 矩阵键盘：行线 4 根（扫描时逐个拉低），列线 4 根（上拉读低） */
+#define KP_N        4
+const uint8_t KP_ROWS[KP_N] = { 2, 3, 4, 5 };
+const uint8_t KP_COLS[KP_N] = { 6, 7, 9, 10 };
+
+/* ---------------- 2. 出厂默认值（这里就是"简单编辑"区） ---------------- */
+#define CFG_ADDR      0
+#define CFG_MAGIC     0xA5C3
+#define CFG_VERSION   2
+
+struct __attribute__((packed)) Config {
+  uint16_t magic;
+  uint16_t version;
+  float    calFactor;      // HX711 比例系数 counts/g（CAL 命令自动算）
+  float    ratio;          // 米水比
+  float    portionWeight;  // 配重：物理重量 g
+  float    portionRice;    // 配重：代表米量 g
+  uint32_t timeoutMs;      // 注水超时
+  float    minRice;        // 最小识米量 g
+  float    maxTotal;       // 总重上限 g
+  float    estFlow;        // 预估流量 g/s
+  uint16_t leadMs;         // 停泵余流延迟 ms
+  uint8_t  trigLevel;      // 0=LOW 1=HIGH
+  uint8_t  presetIdx;      // 当前配方档位 0..7
+  uint16_t crc;
+};
+
+Config cfg;
+HX711  scale;
+
+/* ---------------- 2b. 配方表：这就是"产品配方"，改这里就是改产品 ----------------
+ * 每一档存一组参数，不是一个数字 —— 因为米水比一变大，注水时间就变长，
+ * 20 秒固定超时会在半路把稀饭掐断（1:9 配 100g 米要 900g 水，75 秒）。
+ * ratio 是重量比；timeoutMs 必须 >= 目标水量 / 实测流量 × 1.8；
+ * maxTotal 是总重上限（含容器自重），防溢水。 */
+struct Recipe {
+  float    ratio;
+  uint32_t timeoutMs;
+  float    maxTotal;
+};
+
+Recipe recipes[8] = {
+  { 1.20,  25000UL, 3000 },   // 0 东北米：圆粒粳米，标准饭，水刚好被吸干
+  { 1.10,  25000UL, 3000 },   // 1 泰国米：长粒籼米，偏干一点才粒粒分明
+  { 2.00,  35000UL, 4000 },   // 2 软饭：煲仔饭底那种，不是稀饭
+  { 3.00,  45000UL, 5000 },   // 3 烂饭：给老人小孩的糊状饭
+  { 6.00,  75000UL, 6000 },   // 4 稠粥：米开花，还有流动的汤
+  { 9.00, 100000UL, 8000 },   // 5 稀饭：米汤占大半
+  { 1.20,  25000UL, 3000 },   // 6 自定义 A（长按该键写入当前参数）
+  { 1.20,  25000UL, 3000 },   // 7 自定义 B
+};
+
+const char* const RECIPE_NAME[8] = {
+  "东北米 1:1.20", "泰国米 1:1.10", "软饭 1:2.00",  "烂饭 1:3.00",
+  "稠粥 1:6.00",   "稀饭 1:9.00",   "自定义A",      "自定义B"
+};
+
+/* ---------------- 3. 运行时状态 ---------------- */
+enum State { S_IDLE, S_FILL, S_SETTLE, S_FAULT };
+const char* stateName[] = { "IDLE", "FILL", "SETTLE", "FAULT" };
+
+const uint16_t SAMPLE_MS   = 200;   // 采样周期
+const uint16_t DRY_CHECK_MS = 3000; // 开泵后多久没有增重就判干抽
+const uint8_t  MAX_TOPUPS  = 3;     // 最多补泵次数
+const float    TOPUP_TOL   = 1.5;   // 补泵容差 g
+
+State    state = S_IDLE;
+bool     runEnabled = true;   // RUN/STOP 放行
+bool     simMode    = false;  // 软件模拟称重
+float    simWeight  = 0.0;    // 模拟读数
+float    tareOffset = 0.0;    // 软件去皮偏移
+
+float    riceGrams     = 0;   // 本轮米量
+float    targetWater   = 0;   // 目标加水量
+float    startTotal    = 0;   // 开泵时基准重量
+float    addedWater    = 0;   // 已加水量
+float    flowEst       = 0;   // 实测流量 g/s
+uint8_t  topups        = 0;
+uint32_t tSample = 0, tFillStart = 0, tSettle = 0;
+
+char     cmdBuf[40];
+uint8_t  cmdLen = 0;
+
+/* ---------------- 4. 配置校验与存取 ---------------- */
+uint16_t cfgCrc(const Config &c) {
+  const uint8_t *p = (const uint8_t*)&c;
+  uint16_t s = 0x1234;
+  for (size_t i = 0; i < sizeof(Config) - sizeof(c.crc); i++) {
+    s = (uint16_t)((s + p[i]) * 31u + 7u);
+  }
+  return s;
+}
+
+void cfgDefault() {
+  cfg.magic         = CFG_MAGIC;
+  cfg.version       = CFG_VERSION;
+  cfg.calFactor     = 420.0;    // 常见 5kg 悬臂梁在 HX711 通道 A/gain128 下的量级，必须用 CAL 现场标定
+  cfg.ratio         = 1.20;     // 100g 米 -> 120g 水
+  cfg.portionWeight = 100.0;    // 默认：100g 配重
+  cfg.portionRice   = 100.0;    // 代表 100g 米（1:1 直读）
+  cfg.timeoutMs     = 20000UL;
+  cfg.minRice       = 20.0;
+  cfg.maxTotal      = 3000.0;
+  cfg.estFlow       = 12.0;     // 常见 12V 小泵 10~15 g/s 量级，仅作初值
+  cfg.leadMs        = 200;
+  cfg.trigLevel     = 1;
+  cfg.presetIdx     = 0;      // 默认第 0 档：东北米 1:1.2
+  cfg.crc           = cfgCrc(cfg);
+}
+
+void cfgSave() {
+  cfg.magic   = CFG_MAGIC;
+  cfg.version = CFG_VERSION;
+  cfg.crc     = cfgCrc(cfg);
+  EEPROM.put(CFG_ADDR, cfg);
+}
+
+bool cfgLoad() {
+  EEPROM.get(CFG_ADDR, cfg);
+  if (cfg.magic != CFG_MAGIC || cfg.version != CFG_VERSION) return false;
+  if (cfg.crc != cfgCrc(cfg)) return false;
+  if (cfg.portionWeight <= 1.0 || cfg.portionRice <= 0.0) return false;
+  /* 下界放到 0.001：Wokwi 的 HX711 量程 0-2100 @5kg，标定出来正好 0.42 counts/g */
+  if (cfg.calFactor < 0.001 || cfg.calFactor > 100000.0) return false;
+  if (cfg.presetIdx > 7) return false;
+  return true;
+}
+
+/* ---------------- 5. 称重与配重映射 ---------------- */
+float rawWeight() {
+  if (simMode) return simWeight;
+  return scale.get_units(3);          // 库内已按 calFactor 换算成克
+}
+
+float readWeight() {
+  return rawWeight() - tareOffset;
+}
+
+// 配重(g) -> 米量(g)：过原点直线，斜率由「多少配重代表多少米」决定
+float weightToRice(float w) {
+  if (w <= 0.0) return 0.0;
+  return w * (cfg.portionRice / cfg.portionWeight);
+}
+
+/* ---------------- 6. 泵控制 ---------------- */
+void pumpOn() {
+  digitalWrite(PIN_PUMP, cfg.trigLevel ? HIGH : LOW);
+  digitalWrite(PIN_LED, HIGH);
+}
+
+void pumpOff() {
+  digitalWrite(PIN_PUMP, cfg.trigLevel ? LOW : HIGH);
+  digitalWrite(PIN_LED, LOW);
+}
+
+void fault(const char* why) {
+  pumpOff();
+  state = S_FAULT;
+  Serial.print("!! FAULT: ");
+  Serial.println(why);
+  Serial.println("   已强制停泵。修好后发 STOP 再发 RUN 复位。");
+}
+
+/* ---------------- 6b. 4x4 键盘：扫描、消抖、长短按 ---------------- */
+void startCycle(float rice, float baseWeight);   // 前向声明，按键要用
+
+void kpInit() {
+  for (uint8_t i = 0; i < KP_N; i++) {
+    pinMode(KP_ROWS[i], INPUT);
+    pinMode(KP_COLS[i], INPUT_PULLUP);
+  }
+}
+
+/* 逐个把一行拉低，看哪一列被拉低；没键返回 255 */
+uint8_t kpScan() {
+  for (uint8_t r = 0; r < KP_N; r++) {
+    for (uint8_t i = 0; i < KP_N; i++) pinMode(KP_ROWS[i], (i == r) ? OUTPUT : INPUT);
+    digitalWrite(KP_ROWS[r], LOW);
+    delayMicroseconds(30);
+    for (uint8_t c = 0; c < KP_N; c++) {
+      if (digitalRead(KP_COLS[c]) == LOW) {
+        for (uint8_t i = 0; i < KP_N; i++) pinMode(KP_ROWS[i], INPUT);
+        return (uint8_t)(r * KP_N + c);
+      }
+    }
+  }
+  for (uint8_t i = 0; i < KP_N; i++) pinMode(KP_ROWS[i], INPUT);
+  return 255;
+}
+
+uint8_t  keyEvent = 255, keyHold = 255;
+uint8_t  kpSeen = 255, kpStable = 255;
+uint32_t kpChangeMs = 0, kpDownMs = 0;
+bool     kpLongDone = false;
+
+void pollKeypad() {
+  uint8_t v = kpScan();
+  if (v != kpSeen) { kpSeen = v; kpChangeMs = millis(); return; }
+  if (v == kpStable) return;
+  if (millis() - kpChangeMs < 20) return;          // 20ms 消抖
+  kpStable = v;
+  if (v == 255) { kpLongDone = false; return; }    // 松开
+  if (state != S_IDLE && v != 9) return;           // 注水途中只放行「停止」
+  keyEvent   = v;
+  kpDownMs   = millis();
+  kpLongDone = false;
+}
+
+void pollKeyHold() {
+  if (kpStable == 255 || kpLongDone) return;
+  if (millis() - kpDownMs < 800) return;
+  kpLongDone = true;
+  if (state == S_IDLE) keyHold = kpStable;
+}
+
+void flashLed(uint8_t n) {
+  for (uint8_t i = 0; i < n; i++) {
+    digitalWrite(PIN_LED, HIGH); delay(110);
+    digitalWrite(PIN_LED, LOW);  delay(160);
+  }
+}
+
+void applyRecipe(uint8_t i) {
+  if (i >= 8) { Serial.println(F("档位 0-7")); return; }
+  cfg.presetIdx = i;
+  cfg.ratio     = recipes[i].ratio;
+  cfg.timeoutMs = recipes[i].timeoutMs;
+  cfg.maxTotal  = recipes[i].maxTotal;
+  Serial.print(F("模式 ")); Serial.print(i); Serial.print(F("  "));
+  Serial.print(RECIPE_NAME[i]);
+  Serial.print(F("  -> 1:")); Serial.print(cfg.ratio, 2);
+  Serial.print(F("  超时 ")); Serial.print(cfg.timeoutMs / 1000UL); Serial.println(F(" s"));
+  flashLed((uint8_t)(i + 1));
+  cfgSave();
+}
+
+void saveRecipe(uint8_t i) {
+  if (i >= 8) return;
+  recipes[i].ratio     = cfg.ratio;
+  recipes[i].timeoutMs = cfg.timeoutMs;
+  recipes[i].maxTotal  = cfg.maxTotal;
+  cfg.presetIdx = i;
+  cfgSave();
+  Serial.print(F("已把当前参数写进档位 ")); Serial.print(i);
+  Serial.print(F("  ")); Serial.println(RECIPE_NAME[i]);
+  flashLed(3);
+}
+
+void doKey(uint8_t k) {
+  Serial.print(F("[KEY] ")); Serial.print(k); Serial.print(F("  "));
+  if (k < 8) { Serial.println(RECIPE_NAME[k]); applyRecipe(k); return; }
+  switch (k) {
+    case 8: {   // 启动
+      runEnabled = true;
+      if (state == S_FAULT) { state = S_IDLE; Serial.println(F("已复位 FAULT")); break; }
+      float w = readWeight();
+      float rice = weightToRice(w);
+      if (rice < cfg.minRice) { Serial.println(F("米量不够，先投米")); flashLed(2); break; }
+      Serial.println(F("手动启动"));
+      startCycle(rice, w);
+      break;
+    }
+    case 9:     // 停止
+      runEnabled = false; pumpOff(); state = S_IDLE;
+      Serial.println(F("急停"));
+      break;
+    case 10:    // 去皮
+      tareOffset = rawWeight();
+      Serial.print(F("已去皮，当前 ")); Serial.print(readWeight(), 1); Serial.println(F(" g"));
+      flashLed(1);
+      break;
+    case 11:    // 状态
+      Serial.print(F("状态 ")); Serial.print(stateName[state]);
+      Serial.print(F("  总重 ")); Serial.print(readWeight(), 1);
+      Serial.print(F(" g  米 ")); Serial.print(weightToRice(readWeight()), 1);
+      Serial.print(F(" g  档 ")); Serial.print(cfg.presetIdx);
+      Serial.print(F(" 1:")); Serial.println(cfg.ratio, 2);
+      break;
+    case 12: {  // 校准：放 500g 标准重物
+      Serial.println(F("3 秒后按 500 g 标定，请先把 500 g 重物放上去…"));
+      delay(3000);
+      float raw = rawWeight();
+      if (raw < 50.0) { Serial.println(F("读数太小，标定取消")); flashLed(2); break; }
+      cfg.calFactor = cfg.calFactor * 500.0 / raw;
+      scale.set_scale(cfg.calFactor);
+      cfgSave();
+      Serial.print(F("calFactor -> ")); Serial.println(cfg.calFactor, 3);
+      flashLed(2);
+      break;
+    }
+    case 13: {  // 手动加水 100 g（测泵、测余流用）
+      Serial.println(F("手动加水 100 g…"));
+      float w0 = readWeight();
+      uint32_t t0 = millis();
+      pumpOn();
+      while (millis() - t0 < 20000UL) {
+        if (readWeight() - w0 >= 100.0) break;
+        delay(20);
+      }
+      pumpOff();
+      Serial.print(F("实际加了 ")); Serial.print(readWeight() - w0, 1); Serial.println(F(" g"));
+      break;
+    }
+    case 14:    // 存参数到当前档
+      saveRecipe(cfg.presetIdx);
+      break;
+    case 15:    // 恢复出厂
+      cfgDefault(); cfgSave();
+      Serial.println(F("已恢复出厂，档位 0"));
+      flashLed(4);
+      break;
+  }
+}
+
+void onKeyHold(uint8_t k) {
+  if (k < 8) saveRecipe(k);
+  else Serial.println(F("长按只对模式键有效"));
+}
+
+/* ---------------- 7. 一轮配比 ---------------- */
+void startCycle(float rice, float baseWeight) {
+  riceGrams   = rice;
+  targetWater = rice * cfg.ratio;
+  startTotal  = baseWeight;
+  addedWater  = 0;
+  topups      = 0;
+  flowEst     = cfg.estFlow;
+  tFillStart  = millis();
+  tSample     = millis();
+  Serial.println(F("--------------------------------------------------"));
+  Serial.print(F("米量 rice      = ")); Serial.print(riceGrams, 1);   Serial.println(F(" g"));
+  Serial.print(F("目标水 water   = ")); Serial.print(targetWater, 1); Serial.println(F(" g"));
+  Serial.print(F("配重映射       = ")); Serial.print(cfg.portionWeight, 0); Serial.print(F(" g 配重 -> "));
+  Serial.print(cfg.portionRice, 0); Serial.println(F(" g 米"));
+  pumpOn();
+  state = S_FILL;
+  tFillStart = millis();
+}
+
+void finishCycle() {
+  pumpOff();
+  Serial.print(F("== 完成：加水 ")); Serial.print(addedWater, 1);
+  Serial.print(F(" g / 目标 "));      Serial.print(targetWater, 1);
+  Serial.print(F(" g，误差 "));       Serial.print(addedWater - targetWater, 1); Serial.println(F(" g"));
+  Serial.print(F("== 耗时 "));        Serial.print(millis() - tFillStart);
+  Serial.print(F(" ms，补泵 "));      Serial.print(topups); Serial.println(F(" 次"));
+  Serial.println(F("--------------------------------------------------"));
+  state = S_IDLE;
+  // 交出一轮后自动去皮，等下一次投料
+  tareOffset = rawWeight();
+  Serial.println(F("已去皮，等待下次投米..."));
+}
+
+/* 实测流量：两次采样之间的增量 / 时间 */
+void updateFlow(float w) {
+  static float    lastW = 0;
+  static uint32_t lastT = 0;
+  uint32_t now = millis();
+  if (lastT != 0) {
+    uint32_t dt = now - lastT;
+    if (dt >= 50) {
+      float inst = (w - lastW) * 1000.0 / (float)dt;
+      if (inst < 0) inst = 0;                       // 重量下降视为噪声，不计负流量
+      if (inst > cfg.estFlow * 4.0) inst = cfg.estFlow * 4.0;  // 限幅，防抖动炸表
+      flowEst = flowEst * 0.7 + inst * 0.3;          // 一阶低通
+    }
+  }
+  lastW = w;
+  lastT = now;
+}
+
+/* ---------------- 8. 状态机 ---------------- */
+void stepIdle() {
+  if (millis() - tSample < SAMPLE_MS) return;
+  tSample = millis();
+  float w = readWeight();
+  float rice = weightToRice(w);
+  if (rice < cfg.minRice) return;         // 没投料或已取出
+
+  if (!runEnabled) {
+    Serial.print(F("[PAUSE] 检测到 ")); Serial.print(rice, 1);
+    Serial.println(F(" g 米，但 STOP 状态未放行"));
+    return;
+  }
+  startCycle(rice, w);
+}
+
+void stepFill() {
+  if (millis() - tSample < SAMPLE_MS) return;
+  tSample = millis();
+
+  float w = readWeight();
+  addedWater = w - startTotal;
+  updateFlow(w);
+  uint32_t elapsed = millis() - tFillStart;
+
+  /* 保险 1：超时 */
+  if (elapsed > cfg.timeoutMs) { fault("TIMEOUT 注水超时"); return; }
+  /* 保险 2：总重上限 */
+  if (w > cfg.maxTotal)        { fault("OVERFLOW 超过总重上限"); return; }
+  /* 保险 3：干抽 / 泵堵 / 传感器卡死 */
+  if (elapsed > DRY_CHECK_MS && addedWater < 0.5) {
+    fault("DRY-RUN 泵未出水或读数不动"); return;
+  }
+
+  /* 提前断流：剩余量 <= 流量 × (余流延迟 + 一个采样周期) 就停泵 */
+  float leadG = flowEst * ((float)(cfg.leadMs + SAMPLE_MS) / 1000.0);
+  float remain = targetWater - addedWater;
+
+  Serial.print(F("t="));   Serial.print(elapsed);
+  Serial.print(F("ms 总重="));  Serial.print(w, 1);
+  Serial.print(F("g 已加="));   Serial.print(addedWater, 1);
+  Serial.print(F("g 剩余="));   Serial.print(remain, 1);
+  Serial.print(F("g 流量="));   Serial.print(flowEst, 2);
+  Serial.print(F("g/s 提前量=")); Serial.println(leadG, 1);
+
+  if (remain <= leadG) {
+    pumpOff();
+    state  = S_SETTLE;
+    tSettle = millis();
+    Serial.println(F("[STOP] 已提前断流，等待管内余流落定..."));
+  }
+}
+
+void stepSettle() {
+  // 等余流落定：余流延迟 + 400ms 缓冲
+  if (millis() - tSettle < (uint32_t)cfg.leadMs + 400UL) return;
+
+  float w = readWeight();
+  addedWater = w - startTotal;
+  float deficit = targetWater - addedWater;
+
+  if (deficit > TOPUP_TOL && topups < MAX_TOPUPS) {
+    topups++;
+    Serial.print(F("[TOPUP] 差 ")); Serial.print(deficit, 1);
+    Serial.print(F(" g，第 "));    Serial.print(topups); Serial.println(F(" 次补泵"));
+    pumpOn();
+    state = S_FILL;
+    tSample = millis();
+    return;
+  }
+  finishCycle();
+}
+
+void stepFault() {
+  // 快闪报警，等 STOP 复位
+  static uint32_t tBlink = 0;
+  static bool on = false;
+  if (millis() - tBlink > 150) {
+    tBlink = millis();
+    on = !on;
+    digitalWrite(PIN_LED, on ? HIGH : LOW);
+  }
+}
+
+/* ---------------- 9. 串口命令 ---------------- */
+void printHelp() {
+  Serial.println(F("========== 命令 =========="));
+  Serial.println(F("STATUS / HELP / RUN / STOP / ZERO"));
+  Serial.println(F("SET PORTION <配重g> <代表米g>   例: SET PORTION 100 150"));
+  Serial.println(F("SET RATIO <x>    例: SET RATIO 1.2"));
+  Serial.println(F("SET TIMEOUT <ms> / SET MINRICE <g> / SET MAXTOTAL <g>"));
+  Serial.println(F("SET FLOW <g/s> / SET LEAD <ms> / SET TRIG <0|1>"));
+  Serial.println(F("CAL <已知g>     用已知重物标定"));
+  Serial.println(F("MANUAL <米g>    跳过称重直接按指定米量配比"));
+  Serial.println(F("SIM <g> / SIMOFF  软件模拟称重"));
+  Serial.println(F("SAVE / LOAD / RESETCFG"));
+  Serial.println(F("=========================="));
+}
+
+void printStatus() {
+  Serial.print(F("state="));    Serial.print(stateName[state]);
+  Serial.print(F("  sim="));     Serial.println(simMode ? F("ON") : F("OFF"));
+  Serial.print(F("重量="));      Serial.print(readWeight(), 1);
+  Serial.print(F(" g  米量="));  Serial.print(weightToRice(readWeight()), 1); Serial.println(F(" g"));
+  Serial.print(F("ratio="));      Serial.print(cfg.ratio, 3);
+  Serial.print(F("  portion="));  Serial.print(cfg.portionWeight, 1);
+  Serial.print(F(" g -> "));      Serial.print(cfg.portionRice, 1); Serial.println(F(" g 米"));
+  Serial.print(F("timeout="));    Serial.print(cfg.timeoutMs);
+  Serial.print(F(" ms  minRice=")); Serial.print(cfg.minRice, 1);
+  Serial.print(F(" g  maxTotal=")); Serial.print(cfg.maxTotal, 1); Serial.println(F(" g"));
+  Serial.print(F("estFlow="));    Serial.print(cfg.estFlow, 2);
+  Serial.print(F(" g/s  lead=")); Serial.print(cfg.leadMs);
+  Serial.print(F(" ms  trig="));  Serial.println(cfg.trigLevel ? F("HIGH") : F("LOW"));
+  Serial.print(F("calFactor="));  Serial.println(cfg.calFactor, 3);
+}
+
+void upper(char *s) { for (; *s; ++s) if (*s >= 'a' && *s <= 'z') *s -= 32; }
+
+void handleCommand(char *line) {
+  char raw[40];
+  strncpy(raw, line, sizeof(raw) - 1);
+  raw[sizeof(raw) - 1] = 0;
+
+  upper(line);
+  char *cmd = strtok(line, " \t");
+  if (!cmd) return;
+
+  if (!strcmp(cmd, "PRESET")) {
+    char *a = strtok(NULL, " \t");
+    if (!a) { Serial.println(F("用法 PRESET <0-7>")); return; }
+    applyRecipe((uint8_t)atoi(a));
+    return;
+  }
+  if (!strcmp(cmd, "RECIPES")) {
+    for (uint8_t i = 0; i < 8; i++) {
+      Serial.print(i); Serial.print(F("  "));
+      Serial.print(RECIPE_NAME[i]);
+      Serial.print(F("  超时 ")); Serial.print(recipes[i].timeoutMs / 1000UL);
+      Serial.print(F(" s  上限 ")); Serial.print(recipes[i].maxTotal, 0); Serial.println(F(" g"));
+    }
+    return;
+  }
+
+  if (!strcmp(cmd, "HELP"))    { printHelp();  return; }
+  if (!strcmp(cmd, "STATUS"))  { printStatus(); return; }
+
+  if (!strcmp(cmd, "RUN"))  { runEnabled = true;  if (state == S_FAULT) state = S_IDLE; Serial.println(F("已放行")); return; }
+  if (!strcmp(cmd, "STOP")) { runEnabled = false; pumpOff(); state = S_IDLE;  Serial.println(F("已急停")); return; }
+
+  if (!strcmp(cmd, "ZERO")) {
+    tareOffset = rawWeight();
+    Serial.println(F("已去皮"));
+    return;
+  }
+
+  if (!strcmp(cmd, "SIM")) {
+    char *a = strtok(NULL, " \t");
+    simMode = true;
+    if (a) simWeight = atof(a);
+    Serial.print(F("模拟模式 ON，当前读数 ")); Serial.print(simWeight, 1); Serial.println(F(" g"));
+    return;
+  }
+  if (!strcmp(cmd, "SIMOFF")) {
+    simMode = false;
+    tareOffset = 0;
+    Serial.println(F("模拟模式 OFF，回到 HX711"));
+    return;
+  }
+  if (!strcmp(cmd, "CAL")) {
+    char *a = strtok(NULL, " \t");
+    if (!a) { Serial.println(F("用法 CAL <已知克数>")); return; }
+    float known = atof(a);
+    if (!simMode) {
+      float rawCounts = scale.get_value(10);
+      if (fabs(rawCounts) < 1.0) { Serial.println(F("读数过小，先放重物")); return; }
+      cfg.calFactor = rawCounts / known;
+      scale.set_scale(cfg.calFactor);
+      Serial.print(F("标定完成 calFactor=")); Serial.println(cfg.calFactor, 3);
+    } else {
+      Serial.println(F("模拟模式下标定无意义"));
+    }
+    return;
+  }
+  if (!strcmp(cmd, "MANUAL")) {
+    char *a = strtok(NULL, " \t");
+    if (!a) { Serial.println(F("用法 MANUAL <米克数>")); return; }
+    startCycle(atof(a), readWeight());
+    return;
+  }
+  if (!strcmp(cmd, "SAVE"))     { cfgSave(); Serial.println(F("参数已写入 EEPROM")); return; }
+  if (!strcmp(cmd, "LOAD"))     { if (cfgLoad()) Serial.println(F("参数已从 EEPROM 读取")); else Serial.println(F("EEPROM 无有效参数")); return; }
+  if (!strcmp(cmd, "RESETCFG")) { cfgDefault(); Serial.println(F("参数已恢复出厂值")); return; }
+
+  if (!strcmp(cmd, "SET")) {
+    char *k = strtok(NULL, " \t");
+    if (!k) { Serial.println(F("用法 SET <KEY> <值>")); return; }
+
+    if (!strcmp(k, "PORTION")) {
+      char *a = strtok(NULL, " \t");
+      char *b = strtok(NULL, " \t");
+      if (!a || !b) { Serial.println(F("用法 SET PORTION <配重g> <代表米g>")); return; }
+      float w = atof(a), r = atof(b);
+      if (w <= 0 || r <= 0) { Serial.println(F("两个值都要大于 0")); return; }
+      cfg.portionWeight = w;
+      cfg.portionRice   = r;
+      Serial.print(F("配重映射已改为: ")); Serial.print(w, 1);
+      Serial.print(F(" g 配重 = "));        Serial.print(r, 1); Serial.println(F(" g 米"));
+      return;
+    }
+    char *v = strtok(NULL, " \t");
+    if (!v) { Serial.println(F("缺少数值")); return; }
+    float x = atof(v);
+
+    if      (!strcmp(k, "RATIO"))    { if (x > 0.1 && x < 5)   { cfg.ratio = x; Serial.println(F("ratio 已更新")); } }
+    else if (!strcmp(k, "TIMEOUT"))  { if (x >= 1000)          { cfg.timeoutMs = (uint32_t)x; Serial.println(F("timeout 已更新")); } }
+    else if (!strcmp(k, "MINRICE"))  { if (x >= 1)             { cfg.minRice = x; Serial.println(F("minRice 已更新")); } }
+    else if (!strcmp(k, "MAXTOTAL")) { if (x > 100)            { cfg.maxTotal = x; Serial.println(F("maxTotal 已更新")); } }
+    else if (!strcmp(k, "FLOW"))     { if (x > 0 && x < 200)   { cfg.estFlow = x; Serial.println(F("estFlow 已更新")); } }
+    else if (!strcmp(k, "LEAD"))     { if (x >= 0 && x <= 3000) { cfg.leadMs = (uint16_t)x; Serial.println(F("lead 已更新")); } }
+    else if (!strcmp(k, "TRIG"))     {
+      cfg.trigLevel = (x > 0.5) ? 1 : 0;
+      pumpOff();
+      Serial.println(F("触发电平已更新（泵已关闭，注意继电器当前状态）"));
+    }
+    else Serial.println(F("未知参数"));
+    return;
+  }
+
+  Serial.print(F("未知命令: ")); Serial.println(raw);
+  Serial.println(F("发 HELP 看命令表"));
+}
+
+void pollSerial() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == '\r') continue;
+    if (c == '\n') {
+      cmdBuf[cmdLen] = 0;
+      if (cmdLen) handleCommand(cmdBuf);
+      cmdLen = 0;
+    } else if (cmdLen < sizeof(cmdBuf) - 1) {
+      cmdBuf[cmdLen++] = c;
+    }
+  }
+}
+
+/* ---------------- 10. setup / loop ---------------- */
+void setup() {
+  Serial.begin(9600);
+
+  pinMode(PIN_PUMP, OUTPUT);
+  pinMode(PIN_LED, OUTPUT);
+  kpInit();
+
+  if (!cfgLoad()) { cfgDefault(); }
+
+  // 先把泵置为关闭，避免上电抖动误开泵
+  digitalWrite(PIN_PUMP, cfg.trigLevel ? LOW : HIGH);
+  digitalWrite(PIN_LED, LOW);
+
+  scale.begin(PIN_HX_DT, PIN_HX_SCK);
+  scale.set_scale(cfg.calFactor);
+  scale.tare();
+  tareOffset = 0;
+
+  Serial.println(F("===== RiceMix 闭环米水配比 ====="));
+  Serial.print (F("配重映射: ")); Serial.print(cfg.portionWeight, 0);
+  Serial.print (F(" g 配重 = ")); Serial.print(cfg.portionRice, 0); Serial.println(F(" g 米"));
+  Serial.print (F("米水比  : 1 : ")); Serial.println(cfg.ratio, 2);
+  Serial.print (F("当前配方: ")); Serial.print(cfg.presetIdx);
+  Serial.print (F("  ")); Serial.println(RECIPE_NAME[cfg.presetIdx]);
+  Serial.println(F("投入大米后自动开始；4x4 键盘选档位；串口发 HELP 看命令"));
+  Serial.println(F("无硬件调试：SIM 100 造一个 100g 的读数"));
+}
+
+void loop() {
+  pollKeypad();
+  pollKeyHold();
+  if (keyEvent != 255) { doKey(keyEvent);      keyEvent = 255; }
+  if (keyHold  != 255) { onKeyHold(keyHold);   keyHold  = 255; }
+  pollSerial();
+  switch (state) {
+    case S_IDLE:   stepIdle();   break;
+    case S_FILL:   stepFill();   break;
+    case S_SETTLE: stepSettle(); break;
+    case S_FAULT:  stepFault();  break;
+  }
+}
+
+</script>
+<script>
+window.addEventListener('DOMContentLoaded',()=>{
+  const srcEl=document.getElementById('fwSrc');
+  const codeEl=document.getElementById('fwCode');
+  if(!srcEl||!codeEl) return;
+
+  const raw=srcEl.textContent.replace(/^\n/,'').replace(/\s+$/,'');
+  const LINES=raw.split('\n');
+
+  /* ---- 语法着色（一次性 tokenize，避免二次污染） ---- */
+  const KW=new Set(['if','else','for','while','return','void','int','float','bool','char','const',
+    'static','struct','enum','switch','case','break','continue','true','false','HIGH','LOW',
+    'pinMode','digitalWrite','delay','sizeof','uint8_t','uint16_t','uint32_t','int16_t',
+    'unsigned','long','short','byte','double','do','default','class','public','private','new','delete']);
+  const TY=new Set(['Config','State','String','float','double','bool','char','void','int','byte','uint8_t',
+    'uint16_t','uint32_t','int16_t','unsigned','long']);
+
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  function hl(line){
+    /* 预处理指令 */
+    if(/^\s*#/.test(line)) return '<span class="pp">'+esc(line)+'</span>';
+    let out='',i=0;
+    while(i<line.length){
+      const ch=line[i];
+      /* 行注释 */
+      if(ch==='/'&&line[i+1]==='/'){
+        out+='<span class="cm">'+esc(line.slice(i))+'</span>'; break;
+      }
+      /* 字符串 / 字符 */
+      if(ch==='"'||ch==="'"){
+        let j=i+1;
+        while(j<line.length && line[j]!==ch){ if(line[j]==='\\') j++; j++; }
+        j=Math.min(j+1,line.length);
+        out+='<span class="str">'+esc(line.slice(i,j))+'</span>';
+        i=j; continue;
+      }
+      /* 标识符 */
+      if(/[A-Za-z_]/.test(ch)){
+        let j=i+1;
+        while(j<line.length && /[A-Za-z0-9_]/.test(line[j])) j++;
+        const w=line.slice(i,j);
+        if(KW.has(w)) out+='<span class="k">'+w+'</span>';
+        else if(TY.has(w)) out+='<span class="t">'+w+'</span>';
+        else out+=esc(w);
+        i=j; continue;
+      }
+      /* 数字 */
+      if(/[0-9]/.test(ch)||(ch==='.'&&/[0-9]/.test(line[i+1]||''))){
+        let j=i+1;
+        while(j<line.length && /[0-9a-fA-FxX._]/.test(line[j])) j++;
+        out+='<span class="num">'+line.slice(i,j)+'</span>';
+        i=j; continue;
+      }
+      out+=esc(ch); i++;
+    }
+    return out;
+  }
+
+  let html='';
+  for(let i=0;i<LINES.length;i++){
+    html+='<div class="row" id="L'+(i+1)+'"><div class="n">'+(i+1)+'</div><div class="c">'
+        + (hl(LINES[i])||' ')+'</div></div>';
+  }
+  codeEl.innerHTML=html;
+  document.getElementById('fwMeta').textContent=LINES.length+' 行 · C++ / Arduino';
+
+  /* ---- 函数大纲 ---- */
+  const FNS=[
+    ['struct Config','配置结构 · EEPROM',67],
+    ['struct Recipe','★ 8 档配方表',92],
+    ['weightToRice','★ 配重→米 映射',196],
+    ['kpScan','键盘矩阵扫描',231],
+    ['pollKeypad','消抖 · 长短按',252],
+    ['applyRecipe','切档 · 写 EEPROM',279],
+    ['doKey','16 键响应',305],
+    ['startCycle','开新一轮 · 算目标',377],
+    ['updateFlow','实测流量 · 低通',411],
+    ['stepFill','★ 闭环注水',444],
+    ['stepSettle','稳定窗 · 补泵',481],
+    ['stepFault','FAULT 态',501],
+    ['handleCommand','串口命令解析',546],
+    ['setup','初始化',675],
+    ['loop','主循环',703]
+  ];
+  const ol=document.getElementById('fwOutline');
+  ol.innerHTML=FNS.map((f,i)=>
+    '<button data-l="'+f[2]+'"><span class="t"><b>'+f[0]+'</b><i>'+f[1]+'</i></span>'
+    +'<span class="ln">L'+f[2]+'</span></button>'
+  ).join('<div class="sep"></div>');
+  ol.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{
+      ol.querySelectorAll('button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      codeEl.querySelectorAll('.row.hl').forEach(r=>r.classList.remove('hl'));
+      const t=document.getElementById('L'+b.dataset.l);
+      if(t){
+        t.classList.add('hl');
+        /* 只滚代码容器本身，不惊动 window；目标行顶对齐避免半截行 */
+        const rc=t.getBoundingClientRect(), cb=codeEl.getBoundingClientRect();
+        codeEl.scrollTop=Math.max(0, codeEl.scrollTop+(rc.top-cb.top)-10);
+      }
+    };
+  });
+
+  /* ---- 复制全文 ---- */
+  document.getElementById('btnCopyFw').onclick=e=>{
+    const done=()=>{e.target.textContent='已复制';setTimeout(()=>e.target.textContent='复制全文',1200);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(raw).then(done,()=>{});
+    }else{
+      const ta=document.createElement('textarea'); ta.value=raw;
+      document.body.appendChild(ta); ta.select();
+      try{document.execCommand('copy');done();}catch(_){}
+      document.body.removeChild(ta);
+    }
+  };
+
+  /* ---- 参数生成器 ---- */
+  const G=['gPw','gPr','gRt','gTo','gMr','gMx','gLd','gCf'].map(id=>document.getElementById(id));
+  const out=document.getElementById('genOut');
+  let mode='cmd';
+
+  function gen(){
+    const v={}; G.forEach(i=>v[i.id]=parseFloat(i.value)||0);
+    let t='';
+    if(mode==='cmd'){
+      t+='// 粘进串口监视器（9600，行尾「换行」），逐行发送\n';
+      t+='SET PORTION '+v.gPw+' '+v.gPr+'      // '+v.gPw+'g 配重 = '+v.gPr+'g 米，k='+(v.gPr/v.gPw).toFixed(4)+'\n';
+      t+='SET RATIO '+v.gRt.toFixed(2)+'\n';
+      t+='SET TIMEOUT '+v.gTo+'\n';
+      t+='SET MINRICE '+v.gMr+'\n';
+      t+='SET MAXTOTAL '+v.gMx+'\n';
+      t+='SET LEAD '+v.gLd+'\n';
+      t+='SAVE\n';
+      t+='STATUS\n';
+      t+='\n// 提示：'+v.gPw+'g 配重会算出 '+(v.gPw*v.gPr/v.gPw).toFixed(0)+'g 米，';
+      t+='对应目标水 '+(v.gPr*v.gRt).toFixed(1)+'g';
+    }else{
+      t+='// 覆盖固件里 cfgDefault() 的对应字段\n';
+      t+='cfg.magic         = 0xA5C3;\n';
+      t+='cfg.version       = 1;\n';
+      t+='cfg.calFactor     = '+v.gCf.toFixed(1)+'f;\n';
+      t+='cfg.ratio         = '+v.gRt.toFixed(2)+'f;\n';
+      t+='cfg.portionWeight = '+v.gPw.toFixed(1)+'f;   // 秤上读到多少克\n';
+      t+='cfg.portionRice   = '+v.gPr.toFixed(1)+'f;   // 这些克数代表多少米\n';
+      t+='cfg.timeoutMs     = '+v.gTo+'UL;\n';
+      t+='cfg.minRice       = '+v.gMr.toFixed(1)+'f;\n';
+      t+='cfg.maxTotal      = '+v.gMx.toFixed(1)+'f;\n';
+      t+='cfg.leadMs        = '+v.gLd+'U;\n';
+    }
+    /* 配重映射结果校验：无论输入什么，都给出这一条线的结论 */
+    out.textContent=t;
+  }
+  G.forEach(i=>i.addEventListener('input',gen));
+  document.querySelectorAll('#tab-fw [data-gen]').forEach(b=>{
+    b.onclick=()=>{
+      document.querySelectorAll('#tab-fw [data-gen]').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); mode=b.dataset.gen; gen();
+    };
+  });
+  document.getElementById('btnCopyGen').onclick=e=>{
+    const done=()=>{e.target.textContent='已复制';setTimeout(()=>e.target.textContent='复制',1200);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(out.textContent).then(done,()=>{});
+    }else{
+      const ta=document.createElement('textarea'); ta.value=out.textContent;
+      document.body.appendChild(ta); ta.select();
+      try{document.execCommand('copy');done();}catch(_){}
+      document.body.removeChild(ta);
+    }
+  };
+  gen();
+  window.addEventListener('tabchange',e=>{
+    if(e.detail==='fw'&&ol.querySelector('button')) ol.querySelector('button').click();
+  });
+});
+</script>
+
+
+<div class="sechead"><span class="n">07</span><h3>线上仿真：Wokwi 三件套（可直接跑）</h3><div class="ln"></div></div>
+<div style="background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px">
+  <p style="font-size:12.5px;line-height:1.9;color:#9fb3c8;margin-bottom:12px">
+    Wokwi 能验证的是<b style="color:var(--txt)">决策序列</b>：每 200 ms 采一次、什么时候开泵、什么时候提前断流、什么时候补泵、三重保险会不会踩中。
+    它<b style="color:var(--orange)">没有水路模型</b>——泵开多久，秤上的数字不会自己变，那一段由你扮演物理（手动改 load 或发 <code>SIM &lt;g&gt;</code>）。
+  </p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px">
+    <div style="border:1px solid #1d4a5c;border-radius:8px;padding:9px 11px;background:#0b141c">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--cyan);margin-bottom:3px">diagram.json</div>
+      <div style="font-size:11px;color:#7d94a8;line-height:1.7">贴到编辑器的 diagram.json 标签</div>
+    </div>
+    <div style="border:1px solid #1d4a5c;border-radius:8px;padding:9px 11px;background:#0b141c">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--cyan);margin-bottom:3px">sketch.ino</div>
+      <div style="font-size:11px;color:#7d94a8;line-height:1.7">贴到 sketch.ino 标签（就是右边这份源码）</div>
+    </div>
+    <div style="border:1px solid #1d4a5c;border-radius:8px;padding:9px 11px;background:#0b141c">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--cyan);margin-bottom:3px">libraries.txt</div>
+      <div style="font-size:11px;color:#7d94a8;line-height:1.7">只写一行 <code>HX711</code></div>
+    </div>
+  </div>
+  <div style="border-left:3px solid var(--red);background:rgba(255,77,94,.06);border-radius:0 8px 8px 0;padding:10px 13px;margin-bottom:12px">
+    <div style="font-size:12px;color:#ffb3bd;font-weight:700;margin-bottom:5px">继电器必须写 "transistor": "pnp"</div>
+    <div style="font-size:11.5px;color:#b9c9d8;line-height:1.85">
+      Wokwi 默认 <code>npn</code> 是 <b>IN 低电平</b>才通 NO；而本固件出厂 <code>trigLevel=1</code>（高电平触发）。写 <code>pnp</code> 才能对上。
+      实物上多数单路模块恰好是<b>低电平触发</b>，接好先发 <code>SET TRIG 0</code> + <code>SAVE</code>，否则会反相。
+    </div>
+  </div>
+  <div style="border-left:3px solid var(--green);background:rgba(61,220,151,.06);border-radius:0 8px 8px 0;padding:10px 13px;margin-bottom:14px">
+    <div style="font-size:12px;color:#9df3cd;font-weight:700;margin-bottom:5px">第一次跑：空秤 ZERO → 放 1 kg → CAL 1000</div>
+    <div style="font-size:11.5px;color:#b9c9d8;line-height:1.85">
+      Wokwi 的 HX711 5kg 量程原始读数是 0–2100 counts，1 kg 对应 420，所以标定出来 <code>calFactor=0.42</code>（2100/5000g）。
+      这个数不是常数，实物上要用真砝码现场标，通常在 200–450 之间。
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <div style="font-family:var(--mono);font-size:11px;color:var(--dim2);flex:1">diagram.json —— 粘进 Wokwi 就能连好线</div>
+    <button id="wkCopy" style="font-family:var(--mono);font-size:11px;color:var(--cyan);background:#0d2230;border:1px solid #1d4a5c;border-radius:6px;padding:4px 12px;cursor:pointer">复制</button>
+  </div>
+  <pre id="wkJson" style="margin:0;background:#060b10;border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow:auto;max-height:340px;font-family:var(--mono);font-size:11px;line-height:1.65;color:#9fb3c8">{
+  "version": 1,
+  "author": "RiceMix",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "wokwi-arduino-uno", "id": "uno", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-hx711", "id": "scale", "top": -170, "left": 40, "attrs": { "type": "5kg" } },
+    { "type": "wokwi-relay-module", "id": "relay", "top": 230, "left": 150, "attrs": { "transistor": "pnp" } },
+    { "type": "wokwi-led", "id": "pumpLed", "top": 210, "left": 420, "attrs": { "color": "red", "label": "PUMP" } },
+    { "type": "wokwi-resistor", "id": "r1", "top": 265, "left": 420, "attrs": { "value": "220" } },
+    { "type": "wokwi-led", "id": "statLed", "top": 80, "left": 420, "attrs": { "color": "green", "label": "STATUS" } },
+    { "type": "wokwi-resistor", "id": "r2", "top": 135, "left": 420, "attrs": { "value": "220" } }
+  ],
+  "connections": [
+    [ "scale:VCC", "uno:5V", "red", [] ],
+    [ "scale:GND", "uno:GND.2", "black", [] ],
+    [ "scale:DT", "uno:A1", "green", [] ],
+    [ "scale:SCK", "uno:A0", "yellow", [] ],
+    [ "relay:VCC", "uno:5V", "red", [] ],
+    [ "relay:GND", "uno:GND.1", "black", [] ],
+    [ "relay:IN", "uno:8", "orange", [] ],
+    [ "relay:COM", "uno:5V", "red", [] ],
+    [ "relay:NO", "pumpLed:A", "red", [] ],
+    [ "pumpLed:C", "r1:1", "black", [] ],
+    [ "r1:2", "uno:GND.3", "black", [] ],
+    [ "statLed:A", "uno:13", "purple", [] ],
+    [ "statLed:C", "r2:1", "black", [] ],
+    [ "r2:2", "uno:GND.3", "black", [] ]
+  ],
+  "serialMonitor": { "display": "always", "newline": "lf" }
+}</pre>
+  <p style="font-size:11.5px;color:#6f8698;margin-top:10px;line-height:1.8">
+    三件套已同时落在 <code>E:\hardness\ricemix\wokwi\</code>，含一份把坑都写清楚的 <code>README.md</code>。
+  </p>
+</div>
+<script>
+(function(){
+  var b=document.getElementById('wkCopy'),p=document.getElementById('wkJson');
+  if(!b||!p) return;
+  b.onclick=function(){
+    var done=function(){b.textContent='已复制';setTimeout(function(){b.textContent='复制';},1200);};
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(p.textContent).then(done,function(){}); }
+    else{ var ta=document.createElement('textarea'); ta.value=p.textContent; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(_){} document.body.removeChild(ta); }
+  };
+})();
+</script>
+
+</section>
+
+<!-- ==================== ⑤ 采购清单 ==================== -->
+<section class="tab" id="tab-bom">
+<style>
+#tab-bom .lead{font-size:13px;line-height:1.85;color:#9fb3c8;max-width:1120px}
+#tab-bom .lead b{color:var(--txt)}
+#tab-bom .sechead{display:flex;align-items:center;gap:10px;margin:26px 0 10px}
+#tab-bom .sechead .n{font-family:var(--mono);font-size:11px;color:var(--cyan);
+  border:1px solid #1d4a5c;border-radius:5px;padding:2px 7px}
+#tab-bom .sechead h3{font-size:15px}
+#tab-bom .sechead .ln{flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+#tab-bom .tiers{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;margin-bottom:6px}
+#tab-bom .tier{background:linear-gradient(160deg,#0c141d,#0a1018);border:1px solid var(--line);
+  border-radius:10px;padding:14px 16px}
+#tab-bom .tier .tn{font-family:var(--mono);font-size:10.5px;color:var(--dim2);
+  letter-spacing:.08em;text-transform:uppercase}
+#tab-bom .tier .tp{font-family:var(--mono);font-size:24px;color:var(--cyan);margin:6px 0 2px;font-weight:600}
+#tab-bom .tier .td{font-size:12px;color:#8095a9;line-height:1.7}
+#tab-bom .tier.t2 .tp{color:var(--orange)}
+#tab-bom .tier.t3 .tp{color:var(--green)}
+
+#tab-bom .grp{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  overflow:hidden;margin-bottom:12px}
+#tab-bom .grp>h4{padding:11px 14px;font-size:13px;border-bottom:1px solid var(--line);
+  display:flex;align-items:center;gap:9px;background:#0b1219}
+#tab-bom .grp>h4 .gh{font-family:var(--mono);font-size:11px;color:var(--cyan);
+  border:1px solid #1d4a5c;border-radius:4px;padding:1px 6px}
+#tab-bom .grp>h4 .sub{font-family:var(--mono);font-size:10.5px;color:#4a6072;margin-left:auto}
+#tab-bom .tw{overflow-x:auto}
+#tab-bom table{width:100%;border-collapse:collapse;font-size:12.5px;min-width:760px}
+#tab-bom thead th{text-align:left;font-family:var(--mono);font-size:10px;color:var(--dim2);
+  text-transform:uppercase;letter-spacing:.06em;padding:8px 10px;background:#080d13;
+  border-bottom:1px solid var(--line);white-space:nowrap}
+#tab-bom tbody td{padding:9px 10px;border-bottom:1px solid #0e1822;color:#9fb3c8;line-height:1.6;
+  vertical-align:top}
+#tab-bom tbody tr:last-child td{border-bottom:none}
+#tab-bom tbody tr:hover{background:#0b1319}
+#tab-bom tbody tr.off{opacity:.42}
+#tab-bom td.ck{width:34px;text-align:center}
+#tab-bom td.ck input{width:14px;height:14px;accent-color:var(--cyan);cursor:pointer}
+#tab-bom td.nm{color:#d8e4f2;font-weight:500;white-space:nowrap}
+#tab-bom td.nm .opt{font-family:var(--mono);font-size:9.5px;color:#5b7386;
+  border:1px solid #24323f;border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:1px}
+#tab-bom td.sp{font-size:11.5px;color:#7a90a5;font-family:var(--mono);line-height:1.65}
+#tab-bom td.qty,#tab-bom td.pr,#tab-bom td.sm{font-family:var(--mono);white-space:nowrap;text-align:right}
+#tab-bom td.pr{color:#8ba0b5}
+#tab-bom td.sm{color:var(--orange)}
+#tab-bom td.why{font-size:11.5px;color:#6d8296;max-width:300px}
+#tab-bom .sum{position:sticky;bottom:0;background:#0a1018;border:1px solid #1d4a5c;
+  border-radius:10px;padding:14px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  box-shadow:0 -6px 24px rgba(0,0,0,.5);margin-top:14px}
+#tab-bom .sum .tot{font-family:var(--mono);font-size:26px;color:var(--cyan);font-weight:600}
+#tab-bom .sum .cnt{font-family:var(--mono);font-size:12px;color:#7891a6}
+#tab-bom .sum .sp2{flex:1}
+#tab-bom .notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));
+  gap:12px;margin-top:14px}
+#tab-bom .notes .n{background:#0b1219;border:1px solid var(--line);border-radius:9px;padding:13px 15px}
+#tab-bom .notes .n h5{font-size:12.5px;color:var(--cyan);margin-bottom:8px}
+#tab-bom .notes .n p{font-size:12.5px;color:#8ba0b5;line-height:1.8}
+#tab-bom .notes .n p b{color:#d8e4f2}
+#tab-bom .notes .n.w h5{color:#ff9a5a}
+#tab-bom .notes .n.r h5{color:#ff8792}
+#tab-bom .notes .n code{font-family:var(--mono);font-size:11.5px;color:#7dd3fc}
+</style>
+
+<div class="lead">
+  下面按「能不能跑起来」分三层。<b>只验证机制</b>不需要水泵，一盏 LED 就够；
+  <b>真要出水</b>才需要 12 V 那一套。价格是 2024–2025 年国内零售常见区间，
+  <b>随批次、随店家浮动很大，以实际询价为准</b>，别拿这里的数字当采购上限去砍价。
+</div>
+
+<div class="tiers">
+  <div class="tier t1">
+    <div class="tn">Tier 1 · 只验证机制</div>
+    <div class="tp">¥ 60 ~ 120</div>
+    <div class="td">Arduino + HX711 + 继电器 + LED。秤上放东西，听继电器咔哒、看 LED 亮灭，整套闭环逻辑全跑通，一滴水不放。</div>
+  </div>
+  <div class="tier t2">
+    <div class="tn">Tier 2 · 真能出水</div>
+    <div class="tp">¥ 150 ~ 280</div>
+    <div class="td">加泵、12 V 电源、软管、容器、共地线。可以真的煮饭了，但泵的反峰还没防护，长期用有风险。</div>
+  </div>
+  <div class="tier t3">
+    <div class="tn">Tier 3 · 长期开火</div>
+    <div class="tp">¥ 220 ~ 400</div>
+    <div class="td">加二极管、电解电容、自恢复保险丝、亚克力称台、螺丝。这一层才谈得上「能放在厨房不炸」。</div>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">01</span><h3>物料清单（可勾选，实时算钱）</h3><span class="ln"></span></div>
+<div id="bomHost"></div>
+
+<div class="sum">
+  <div>
+    <div class="cnt">已选 <span id="bomCount">0</span> 项</div>
+    <div class="tot" id="bomTotal">¥ 0</div>
+  </div>
+  <div class="cnt" id="bomRange" style="color:#5b7386">—</div>
+  <div class="sp2"></div>
+  <button class="chip" id="btnBomReset">全选必买</button>
+  <button class="chip" id="btnBomAll">全选</button>
+  <button class="chip" id="btnBomNone">全不选</button>
+</div>
+
+<div class="sechead"><span class="n">02</span><h3>买错就会返工的六个地方</h3><span class="ln"></span></div>
+<div class="notes">
+  <div class="n w">
+    <h5>① 泵：别买「12V 高压微型泵」</h5>
+    <p>要的是<b>扬程 ≥ 1 m、流量 1~3 L/min、额定电流 &lt; 1 A</b> 的小隔膜泵或潜水泵。
+    买到大功率鱼缸泵（2 A 以上），继电器模块的触点、你的 12 V 适配器、还有那颗自恢复保险丝全部要跟着换。
+    另外确认泵<b>带软管宝塔接头</b>，没有接头你会需要额外买气动接头。</p>
+  </div>
+  <div class="n w">
+    <h5>② 电源：不要拿一个 12 V 兼供 Arduino</h5>
+    <p>泵启动瞬间电流能冲到额定的 2~4 倍，会把 12 V 拽下来，Arduino 跟着复位 —— 现象是「泵一转，串口就断，程序从头跑」。
+    <b>Arduino 用 USB 独立供电，泵用单独的 12 V 适配器</b>，两边只共一根 GND。这是整套系统最常见的翻车点。</p>
+  </div>
+  <div class="n w">
+    <h5>③ 继电器：认「光耦隔离 + 高低电平可选」</h5>
+    <p>便宜的裸继电器模块（无光耦）在泵断电反峰时会通过线圈倒灌干扰 MCU。带光耦的模块多两块钱，
+    能省掉一整晚的玄学调试。另外很多模块默认<b>低电平触发</b>，和文档里的 HIGH 触发相反，
+    固件里用 <code>SET TRIG 0</code> 改，不用重新烧录。</p>
+  </div>
+  <div class="n r">
+    <h5>④ 软管：越短越好，别留 U 型弯</h5>
+    <p>1 米内径 8 mm 的管子存水约 <b>50 g</b>，比一整次的目标水量还多。管子长一倍，余流误差就翻一倍。
+    <b>管口尽量贴近容器口，中间不能有下凹的 U 型存水段</b>，否则那一段水会在你关泵后慢慢虹吸过来，
+    前面算的 leadMs 全白费。</p>
+  </div>
+  <div class="n r">
+    <h5>⑤ 称重台：软的台面等于慢性误差</h5>
+    <p>应变片本身很准，但如果你把容器直接压在悬臂梁的自由端、下面还垫着海绵，读数会一直晃。
+    正确做法是<b>一块 3 mm 亚克力或木板做台面，单点压在悬臂梁的受力端</b>，
+    悬臂梁另一端固定死在底座上。这一步决定了你的稳态误差是 1 g 还是 20 g。</p>
+  </div>
+  <div class="n">
+    <h5>⑥ 容器：认食品级、认刻度、认围挡</h5>
+    <p>PP 或 304 不锈钢都行，容量按「米 + 水」算：500 g 米配 600 g 水，加上米本身体积，
+    <b>至少 2 L</b>。容器侧壁要有围挡或把手槽，否则注水时水柱冲击会让容器在秤台上滑移，
+    重量读数会跳变。别用金属容器直接接触裸电路。</p>
+  </div>
+</div>
+
+<div class="sechead"><span class="n">03</span><h3>去哪买</h3><span class="ln"></span></div>
+<div class="notes">
+  <div class="n">
+    <h5>立创商城 / 得捷</h5>
+    <p>电阻电容二极管保险丝这类小件正品可靠，但<b>有起订量和运费</b>，单买一两颗不划算。适合和别的项目一起凑单。</p>
+  </div>
+  <div class="n">
+    <h5>淘宝 / 拼多多</h5>
+    <p>Arduino 兼容板、HX711 套装、继电器模块、泵，全都便宜且包邮。<b>要挑销量过千、有实拍图的店</b>。
+    HX711 认准「带稳压、带滤波电容」的版本，裸芯片版噪声大。</p>
+  </div>
+  <div class="n">
+    <h5>本地五金 / 厨房用品店</h5>
+    <p>软管、容器、扎带、螺丝，线下反而快且便宜。软管要买<b>食品级硅胶</b>，别用工业 PVC —— 热水会析出增塑剂。</p>
+  </div>
+</div>
+</section>
+<script>
+window.addEventListener('DOMContentLoaded',()=>{
+  const host=document.getElementById('bomHost');
+  if(!host) return;
+
+  const BOM=[
+    { g:'A. 控制与感知', sub:'没有这些，逻辑跑不起来', items:[
+      { n:'Arduino Uno R3 兼容板', spec:'ATmega328P / CH340 串口 / USB 供电', q:1, p:[25,45], need:1,
+        why:'主控。兼容板即可，官方板贵三倍功能一致' },
+      { n:'HX711 + 5kg 悬臂梁套装', spec:'24 位 ADC，量程 5 kg，精度约 1 g', q:1, p:[12,25], need:1,
+        why:'整套系统的眼睛。买套装，单买芯片还要自己贴应变片' },
+      { n:'单路 5V 继电器模块', spec:'光耦隔离，高低电平可选，触点 ≥10A', q:1, p:[5,12], need:1,
+        why:'用低压信号开关 12V 泵，MCU 和泵之间唯一的隔离层' },
+      { n:'杜邦线 公对公 20cm', spec:'一排 40 根', q:1, p:[3,7], need:1,
+        why:'模块之间的连接，公对公最多用' },
+      { n:'杜邦线 公对母 20cm', spec:'一排 40 根', q:1, p:[3,7], need:1,
+        why:'从 Arduino 排针引到面包板/模块' },
+      { n:'面包板 830 孔', spec:'带电源轨', q:1, p:[6,14], need:1,
+        why:'免焊接搭原型，改线不用拆焊' },
+      { n:'4×4 薄膜矩阵键盘', spec:'8 线 16 键，70×70mm 贴面，带杜邦排针', q:1, p:[7,16], need:1,
+        why:'一键切米水比：东北米 / 泰国米 / 软饭 / 烂饭 / 稠粥 / 稀饭 / 自定义×2。没有它就只能插电脑发串口命令' }
+    ]},
+    { g:'B. 流体执行', sub:'泵、电、水、容器', items:[
+      { n:'12V 微型直流泵', spec:'扬程 ≥1m，流量 1~3L/min，额定 <1A，带宝塔接头', q:1, p:[15,35], need:1,
+        why:'执行器。买超规格的，后面全套配件都要跟着升级' },
+      { n:'12V 2A 电源适配器', spec:'DC 5.5×2.1 圆头，独立给泵供电', q:1, p:[15,30], need:1,
+        why:'泵必须独立供电，用 Arduino 的 5V 会掉电复位' },
+      { n:'DC 电源母座（带接线端子）', spec:'5.5×2.1 母座转螺丝端子', q:1, p:[2,6], need:1,
+        why:'把适配器的圆头转成能接线的端子' },
+      { n:'食品级硅胶软管', spec:'内径 8mm 外径 12mm，长度 0.5m 足够', q:1, p:[5,12], need:1,
+        why:'输送水。越短越好，长了余流误差成倍放大' },
+      { n:'PP 容器 2L 带刻度', spec:'食品级，侧壁带围挡/把手槽', q:1, p:[10,28], need:1,
+        why:'称重与盛水的载体。容量按米+水总量算，至少 2L' },
+      { n:'扎带 / 管夹', spec:'尼龙扎带 100 根', q:1, p:[3,8], need:1,
+        why:'固定管路，防止水柱反冲把管子甩脱' }
+    ]},
+    { g:'C. 保护件', sub:'这一层决定它会不会烧', items:[
+      { n:'1N4007 二极管', spec:'1000V 1A，10 只装', q:1, p:[3,8], need:1,
+        why:'反并联在泵两端，泄掉断电瞬间的电感反峰' },
+      { n:'电解电容 1000μF 25V', spec:'10 只装，105℃ 更耐用', q:1, p:[3,8], need:1,
+        why:'并在泵电源两端，填补启动瞬间的电压塌陷' },
+      { n:'自恢复保险丝 PPTC', spec:'按泵额定电流 ×1.2 选，如 1.5A，10 只装', q:1, p:[3,8], need:1,
+        why:'泵堵转时切断，冷却后自动恢复，不用换' },
+      { n:'热缩管套装', spec:'φ2~φ8 混装', q:1, p:[5,12], need:1,
+        why:'裸露的接线头包住，厨房环境有水' },
+      { n:'亚克力板 3mm', spec:'200×300mm', q:1, p:[10,22], need:1,
+        why:'做称台。悬臂梁要有硬台面，软台面会一直晃' },
+      { n:'M3 螺丝螺母套装', spec:'含铜柱、垫片', q:1, p:[8,16], need:1,
+        why:'固定悬臂梁一端、台面、模块' },
+      { n:'万用表', spec:'带通断蜂鸣档即可', q:1, p:[45,120], need:0,
+        why:'查共地、查继电器通断、量泵电流。没有它排障基本靠猜' }
+    ]},
+    { g:'D. 标定与耗材', sub:'让数字变成真的克', items:[
+      { n:'500g 袋装米（或标准砝码）', spec:'已知重量，用于 CAL 标定', q:1, p:[0,25], need:1,
+        why:'标定系数必须用已知重量算，厨房里现成的米最方便' },
+      { n:'大米 + 水', spec:'调试耗材，多备一点', q:1, p:[0,30], need:1,
+        why:'要反复试很多轮，别用贵米' }
+    ]},
+    { g:'E. 可选升级', sub:'不加也能用', items:[
+      { n:'I2C 1602 LCD 屏', spec:'16×2，带 PCF8574 转接板', q:1, p:[8,18], need:0,
+        why:'不接电脑就能看重量和状态' },
+      { n:'12V 电磁夹管阀（常闭）', spec:'DN8~DN12 食品级软管用，常闭型，<1A，断电即夹死', q:1, p:[25,50], need:0,
+        why:'不泡水的替代执行器：夹住软管通断，只有软管接触水，可整根换；断电自动断流。接线和泵完全一样，固件不用改' },
+      { n:'有源蜂鸣器', spec:'5V 有源，直接驱动', q:1, p:[1,4], need:0,
+        why:'完成/故障时响一声，不用盯屏幕' },
+      { n:'急停按钮', spec:'自锁式，常闭触点', q:1, p:[8,18], need:0,
+        why:'串在泵的 12V 回路上，拍下去直接断电' },
+      { n:'YF-S201 流量计', spec:'1/2 寸，霍尔脉冲输出', q:1, p:[15,28], need:0,
+        why:'直接测流量，和称重互相校验。但要额外占一个中断脚' },
+      { n:'HC-SR04 超声波', spec:'测距 2~400cm', q:1, p:[5,12], need:0,
+        why:'测水面高度做二次防溢，和称重是两个独立通道' },
+      { n:'ESP32 开发板', spec:'替代 Uno，自带 WiFi', q:1, p:[18,35], need:0,
+        why:'想做手机看数据/远程启动就换它，但 3.3V 逻辑要重新注意电平' }
+    ]}
+  ];
+
+  const fmt=n=>'¥ '+n.toLocaleString('zh-CN');
+  let html='';
+  BOM.forEach(grp=>{
+    html+='<div class="grp"><h4><span class="gh">'+grp.g.slice(0,1)+'</span>'
+        + grp.g.slice(3) + '<span class="sub">'+grp.sub+'</span></h4><div class="tw"><table><thead><tr>'
+        + '<th></th><th>物料</th><th>规格要点</th><th style="text-align:right">数量</th>'
+        + '<th style="text-align:right">参考单价</th><th style="text-align:right">小计</th><th>为什么需要它</th>'
+        + '</tr></thead><tbody>';
+    grp.items.forEach(it=>{
+      html+='<tr data-lo="'+it.p[0]+'" data-hi="'+it.p[1]+'" data-need="'+it.need+'">'
+          + '<td class="ck"><input type="checkbox"'+(it.need?' checked':'')+'></td>'
+          + '<td class="nm">'+it.n+(it.need?'':'<span class="opt">可选</span>')+'</td>'
+          + '<td class="sp">'+it.spec+'</td>'
+          + '<td class="qty">'+it.q+'</td>'
+          + '<td class="pr">'+it.p[0]+' ~ '+it.p[1]+'</td>'
+          + '<td class="sm">—</td>'
+          + '<td class="why">'+it.why+'</td></tr>';
+    });
+    html+='</tbody></table></div></div>';
+  });
+  host.innerHTML=html;
+
+  const rows=[...host.querySelectorAll('tbody tr')];
+
+  function calc(){
+    let lo=0, hi=0, cnt=0;
+    rows.forEach(r=>{
+      const on=r.querySelector('input').checked;
+      r.classList.toggle('off',!on);
+      const l=+r.dataset.lo, h=+r.dataset.hi;
+      const cell=r.querySelector('.sm');
+      if(on){ lo+=l; hi+=h; cnt++; cell.textContent=(l+' ~ '+h); }
+      else cell.textContent='—';
+    });
+    document.getElementById('bomCount').textContent=cnt;
+    document.getElementById('bomTotal').textContent=fmt(lo)+' ~ '+fmt(hi);
+    document.getElementById('bomRange').textContent=
+      lo===0?'—':'（'+cnt+' 项合计，取常见零售区间）';
+  }
+  rows.forEach(r=>r.querySelector('input').addEventListener('change',calc));
+
+  document.getElementById('btnBomReset').onclick=()=>{
+    rows.forEach(r=>r.querySelector('input').checked=r.dataset.need==='1'); calc();
+  };
+  document.getElementById('btnBomAll').onclick=()=>{
+    rows.forEach(r=>r.querySelector('input').checked=true); calc();
+  };
+  document.getElementById('btnBomNone').onclick=()=>{
+    rows.forEach(r=>r.querySelector('input').checked=false); calc();
+  };
+  calc();
+});
+</script>
+
+</main>
+
+<script>
+/* =========================================================
+   0. 通用
+   ========================================================= */
+const $ = (s,el=document)=>el.querySelector(s);
+const $$ = (s,el=document)=>[...el.querySelectorAll(s)];
+
+/* 页签 */
+$$('nav button[data-tab]').forEach(b=>{
+  b.onclick=()=>{
+    $$('nav button[data-tab]').forEach(x=>x.classList.toggle('active',x===b));
+    $$('.tab').forEach(t=>t.classList.toggle('active',t.id==='tab-'+b.dataset.tab));
+    window.scrollTo({top:0,behavior:'smooth'});
+    /* 隐藏页签里的画布 clientWidth 为 0，必须在可见后重算尺寸 */
+    requestAnimationFrame(()=>window.dispatchEvent(new CustomEvent('tabchange',{detail:b.dataset.tab})));
+  };
+});
+
+/* =========================================================
+   1. 接线图数据
+   ========================================================= */
+const NS='http://www.w3.org/2000/svg';
+const mk=(n,attrs={})=>{const e=document.createElementNS(NS,n);
+  for(const k in attrs) e.setAttribute(k,attrs[k]);return e;};
+
+/* 元件框：x,y,w,h + 标题 + 引脚[{id,x,y,label,color,dir}] */
+const PARTS=[
+ {id:'lc',x:800,y:118,w:330,h:212,title:'5kg 悬臂梁称重传感器',sub:'LOAD CELL · 应变片全桥',
+  pins:[
+   {id:'E+',x:800,y:170,side:'L',label:'E+',color:'#f472b6'},
+   {id:'E-',x:800,y:215,side:'L',label:'E−',color:'#2b3340'},
+   {id:'A-',x:800,y:260,side:'L',label:'A−',color:'#c084fc'},
+   {id:'A+',x:800,y:305,side:'L',label:'A+',color:'#c084fc'}]},
+
+ {id:'hx',x:480,y:118,w:220,h:212,title:'HX711 称重放大',sub:'24bit ADC · 通道A/gain128',
+  pins:[
+   {id:'VCC',x:480,y:160,side:'L',label:'VCC',color:'#e5484d'},
+   {id:'DT', x:480,y:200,side:'L',label:'DT', color:'#ffd23f'},
+   {id:'SCK',x:480,y:240,side:'L',label:'SCK',color:'#3ddc97'},
+   {id:'GND',x:480,y:280,side:'L',label:'GND',color:'#2b3340'},
+   {id:'E+',x:700,y:170,side:'R',label:'E+',color:'#f472b6'},
+   {id:'E-',x:700,y:215,side:'R',label:'E−',color:'#2b3340'},
+   {id:'A-',x:700,y:260,side:'R',label:'A−',color:'#c084fc'},
+   {id:'A+',x:700,y:305,side:'R',label:'A+',color:'#c084fc'}]},
+
+ {id:'uno',x:70,y:330,w:250,h:410,title:'Arduino Uno R3',sub:'ATmega328P · 5V 逻辑',
+  pins:[
+   {id:'5V', x:320,y:380,side:'R',label:'5V', color:'#e5484d'},
+   {id:'GND',x:320,y:425,side:'R',label:'GND',color:'#2b3340'},
+   {id:'A0', x:320,y:470,side:'R',label:'A0', color:'#3ddc97'},
+   {id:'A1', x:320,y:515,side:'R',label:'A1', color:'#ffd23f'},
+   {id:'D8', x:320,y:590,side:'R',label:'D8', color:'#ff9f1c'},
+   {id:'D13',x:320,y:640,side:'R',label:'D13',color:'#a78bfa'},
+   {id:'D2', x:104,y:740,side:'B',label:'D2', color:'#4cc9f0'},
+   {id:'D3', x:132,y:740,side:'B',label:'D3', color:'#3ddc97'},
+   {id:'D4', x:160,y:740,side:'B',label:'D4', color:'#ffd23f'},
+   {id:'D5', x:188,y:740,side:'B',label:'D5', color:'#a78bfa'},
+   {id:'D6', x:216,y:740,side:'B',label:'D6', color:'#4cc9f0'},
+   {id:'D7', x:244,y:740,side:'B',label:'D7', color:'#3ddc97'},
+   {id:'D9', x:272,y:740,side:'B',label:'D9', color:'#ffd23f'},
+   {id:'D10',x:300,y:740,side:'B',label:'D10',color:'#a78bfa'}]},
+
+ {id:'relay',x:480,y:432,w:220,h:200,title:'单路继电器模块',sub:'光耦隔离 · 5V 触发',
+  pins:[
+   {id:'VCC',x:480,y:470,side:'L',label:'VCC',color:'#e5484d'},
+   {id:'GND',x:480,y:510,side:'L',label:'GND',color:'#2b3340'},
+   {id:'IN', x:480,y:550,side:'L',label:'IN', color:'#ff9f1c'},
+   {id:'COM',x:700,y:470,side:'R',label:'COM',color:'#4cc9f0'},
+   {id:'NO', x:700,y:510,side:'R',label:'NO', color:'#4cc9f0'},
+   {id:'NC', x:700,y:550,side:'R',label:'NC', color:'#5b6b7e'}]},
+
+ {id:'led',x:480,y:660,w:200,h:150,title:'状态指示灯',sub:'LED + 220Ω',
+  pins:[
+   {id:'A',x:480,y:700,side:'L',label:'A',color:'#a78bfa'},
+   {id:'K',x:480,y:760,side:'L',label:'K',color:'#2b3340'}]},
+
+ {id:'psu',x:1150,y:432,w:190,h:130,title:'12V 直流电源',sub:'≥1.5×泵额定电流',
+  pins:[
+   {id:'P',x:1150,y:470,side:'L',label:'+12V',color:'#4cc9f0'},
+   {id:'N',x:1150,y:530,side:'L',label:'GND', color:'#7dd3fc'}]},
+
+ {id:'pump',x:880,y:700,w:200,h:130,title:'12V 直流水泵',sub:'＜1A · 潜入水中',
+  pins:[
+   {id:'P',x:880,y:740,side:'L',label:'+',color:'#4cc9f0'},
+   {id:'N',x:880,y:790,side:'L',label:'−',color:'#7dd3fc'}]},
+
+ {id:'kp',x:80,y:786,w:250,h:172,title:'4×4 矩阵键盘',sub:'16 键 · 8 线 · 行 D2–D5 / 列 D6 D7 D9 D10',
+  pins:[
+   {id:'R1',x:104,y:786,side:'T',label:'R1',color:'#4cc9f0'},
+   {id:'R2',x:132,y:786,side:'T',label:'R2',color:'#3ddc97'},
+   {id:'R3',x:160,y:786,side:'T',label:'R3',color:'#ffd23f'},
+   {id:'R4',x:188,y:786,side:'T',label:'R4',color:'#a78bfa'},
+   {id:'C1',x:216,y:786,side:'T',label:'C1',color:'#4cc9f0'},
+   {id:'C2',x:244,y:786,side:'T',label:'C2',color:'#3ddc97'},
+   {id:'C3',x:272,y:786,side:'T',label:'C3',color:'#ffd23f'},
+   {id:'C4',x:300,y:786,side:'T',label:'C4',color:'#a78bfa'}]},
+
+ {id:'d1',x:786,y:826,w:96,h:60,title:'D1',sub:'1N4007',plain:true,
+  pins:[
+   {id:'K',x:786,y:856,side:'L',label:'',color:'#5b6b7e'},
+   {id:'A',x:882,y:856,side:'R',label:'',color:'#5b6b7e'}]},
+
+ {id:'c1',x:786,y:900,w:96,h:60,title:'C1',sub:'1000µF/25V',plain:true,
+  pins:[
+   {id:'P',x:786,y:930,side:'L',label:'',color:'#5b6b7e'},
+   {id:'N',x:882,y:930,side:'R',label:'',color:'#5b6b7e'}]}
+];
+
+/* 引脚索引 */
+const PIN={};
+PARTS.forEach(p=>p.pins.forEach(q=>PIN[p.id+'.'+q.id]={x:q.x,y:q.y,color:q.color,label:q.label,part:p.id}));
+
+/* 飞线：pts 为折线点（正交），step 用于分步高亮，layer 图层 */
+const WIRES=[
+ /* ---- 1 传感器四线 ---- */
+ {id:'W01',a:'lc.E+',b:'hx.E+',color:'#f472b6',step:1,layer:'ctrl',
+  name:'激励正 E+（红）',pts:[[800,170],[700,170]],
+  desc:'HX711 给应变片电桥供电的正端。',
+  note:'厂家色序不统一，先看模块丝印。接反不会立刻烧，但读数会反向或恒为 0。'},
+ {id:'W02',a:'lc.E-',b:'hx.E-',color:'#f472b6',step:1,layer:'ctrl',
+  name:'激励负 E−（黑）',pts:[[800,215],[700,215]],
+  desc:'电桥激励负，与 E+ 构成供电回路。',
+  note:'E+ 与 E− 之间用万用表量约 1kΩ；若量到 0Ω 或开路，线接错了。'},
+ {id:'W03',a:'lc.A-',b:'hx.A-',color:'#c084fc',step:1,layer:'ctrl',
+  name:'信号负 A−（白）',pts:[[800,260],[700,260]],
+  desc:'差分信号负端。',
+  note:'A+ / A− 对调，重量会变成负数——这是最快的"接反诊断"。'},
+ {id:'W04',a:'lc.A+',b:'hx.A+',color:'#c084fc',step:1,layer:'ctrl',
+  name:'信号正 A+（绿）',pts:[[800,305],[700,305]],
+  desc:'差分信号正端，HX711 通道 A 输入。',
+  note:'信号线尽量远离泵的电源线，否则读数会随泵启停跳。'},
+
+ /* ---- 1b 键盘 8 线（行 D2–D5，列 D6 D7 D9 D10）---- */
+ {id:'W21',a:'uno.D2',b:'kp.R1',color:'#4cc9f0',step:2,layer:'ctrl',
+  name:'键盘行 1 → D2',pts:[[104,740],[104,786]],
+  desc:'按键矩阵第 1 行。固件 KP_ROWS[0]=2，扫到这里时把 D2 拉低。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W22',a:'uno.D3',b:'kp.R2',color:'#3ddc97',step:2,layer:'ctrl',
+  name:'键盘行 2 → D3',pts:[[132,740],[132,786]],
+  desc:'第 2 行。配方 4–7（稠粥 / 稀饭 / 自定义 A / B）在这行。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W23',a:'uno.D4',b:'kp.R3',color:'#ffd23f',step:2,layer:'ctrl',
+  name:'键盘行 3 → D4',pts:[[160,740],[160,786]],
+  desc:'第 3 行，功能键：启动 / 停止 / 去皮 / 状态。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W24',a:'uno.D5',b:'kp.R4',color:'#a78bfa',step:2,layer:'ctrl',
+  name:'键盘行 4 → D5',pts:[[188,740],[188,786]],
+  desc:'第 4 行，维护键：校准 / 加水 100g / 存参数 / 恢复出厂。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W25',a:'uno.D6',b:'kp.C1',color:'#4cc9f0',step:2,layer:'ctrl',
+  name:'键盘列 1 → D6',pts:[[216,740],[216,786]],
+  desc:'第 1 列。读列时 D6 是 INPUT_PULLUP，被拉低就说明这一列的键按下了。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W26',a:'uno.D7',b:'kp.C2',color:'#3ddc97',step:2,layer:'ctrl',
+  name:'键盘列 2 → D7',pts:[[244,740],[244,786]],
+  desc:'第 2 列。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W27',a:'uno.D9',b:'kp.C3',color:'#ffd23f',step:2,layer:'ctrl',
+  name:'键盘列 3 → D9',pts:[[272,740],[272,786]],
+  desc:'第 3 列。注意跳过 D8 —— 那是泵的继电器脚。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+ {id:'W28',a:'uno.D10',b:'kp.C4',color:'#a78bfa',step:2,layer:'ctrl',
+  name:'键盘列 4 → D10',pts:[[300,740],[300,786]],
+  desc:'第 4 列。接反不烧，只是按键错位，把 R/C 两组对调即可。',
+  note:'8 根排线用的是杜邦母对母，插在键盘的 8 针排座上；不需要外部上拉，固件里已经 INPUT_PULLUP。'},
+
+ /* ---- 2 HX711 ↔ 主控 ---- */
+ {id:'W05',a:'uno.5V',b:'hx.VCC',color:'#e5484d',step:2,layer:'ctrl',
+  name:'5V 供电（红）',pts:[[320,380],[340,380],[340,160],[480,160]],
+  desc:'主控 5V 给 HX711 供电。',
+  note:'HX711 的 VCC/GND 反接是最常见烧板原因，接线前拍照核对。'},
+ {id:'W06',a:'uno.GND',b:'hx.GND',color:'#2b3340',step:2,layer:'ctrl',
+  name:'地（黑）',pts:[[320,425],[372,425],[372,280],[480,280]],
+  desc:'信号地。',
+  note:'这条地必须与 12V 电源负极在同一电位（见 W19 共地）。'},
+ {id:'W07',a:'uno.A0',b:'hx.SCK',color:'#3ddc97',step:2,layer:'ctrl',
+  name:'SCK 时钟（绿）',pts:[[320,470],[404,470],[404,240],[480,240]],
+  desc:'主控输出的串行时钟，驱动 HX711 移位读出。',
+  note:'代码里 scale.begin(A1, A0) —— 第一个参数是 DT 脚，第二个是 SCK 脚，别写反。'},
+ {id:'W08',a:'uno.A1',b:'hx.DT',color:'#ffd23f',step:2,layer:'ctrl',
+  name:'DT 数据（黄）',pts:[[320,515],[420,515],[420,200],[480,200]],
+  desc:'HX711 的串行数据输出。',
+  note:'DT 是 HX711 主动拉低表示"数据就绪"，所以它接输入脚；接成输出会读不到。'},
+
+ /* ---- 3 继电器 + 指示灯 ---- */
+ {id:'W09',a:'uno.5V',b:'relay.VCC',color:'#e5484d',step:3,layer:'ctrl',
+  name:'继电器 5V（红）',pts:[[320,380],[356,380],[356,470],[480,470]],
+  desc:'继电器线圈侧逻辑供电。',
+  note:'与 W05 同源，从 5V 引脚并出——两个模块加起来电流通常 <100mA，主控扛得住。'},
+ {id:'W10',a:'uno.GND',b:'relay.GND',color:'#2b3340',step:3,layer:'ctrl',
+  name:'继电器地（黑）',pts:[[320,425],[388,425],[388,510],[480,510]],
+  desc:'继电器控制侧地。',
+  note:'控制侧地与负载侧地只在主控这一处汇合，别在继电器模块上再连一次。'},
+ {id:'W11',a:'uno.D8',b:'relay.IN',color:'#ff9f1c',step:3,layer:'ctrl',
+  name:'控制信号 IN（橙）',pts:[[320,590],[436,590],[436,550],[480,550]],
+  desc:'固件里 PUMP_PIN=8，输出高/低电平决定继电器吸合。',
+  note:'买到的模块有高触发也有低触发：先 SET TRIG 0/1 试，别硬编码。'},
+ {id:'W12',a:'uno.D13',b:'led.A',color:'#a78bfa',step:3,layer:'ctrl',
+  name:'指示灯（紫）',pts:[[320,640],[452,640],[452,700],[480,700]],
+  desc:'与泵同步亮灭，肉眼确认"泵到底开没开"。',
+  note:'LED 必须串 220Ω，直接接 5V 会烧灯珠也烧引脚。'},
+ {id:'W13',a:'led.K',b:'gnd.bus',color:'#2b3340',step:3,layer:'ctrl',
+  name:'指示灯地（黑）',pts:[[480,760],[465,760]],
+  desc:'LED 阴极回到 GND 母线。',
+  note:'长脚是阳极(A)，短脚是阴极(K)；装反了不亮但不烧。'},
+
+ /* ---- 4 强电回路 ---- */
+ {id:'W14',a:'psu.P',b:'relay.COM',color:'#4cc9f0',step:4,layer:'power',
+  name:'+12V → 保险丝 → COM',pts:[[1150,470],[700,470]],
+  desc:'12V 正极经自恢复保险丝进继电器公共端。',
+  note:'保险丝串在正极上，别串负极。COM 是"公共端"，NO/NC 才是被切换的。'},
+ {id:'W15',a:'relay.NO',b:'pump.P',color:'#4cc9f0',step:4,layer:'power',
+  name:'NO → 泵正极',pts:[[700,510],[800,510],[800,740],[880,740]],
+  desc:'继电器吸合时 NO 与 COM 导通，12V 送到泵正极。',
+  note:'用 NO（常开）而不是 NC：断电/复位时泵必须默认关闭。'},
+ {id:'W16',a:'pump.N',b:'psu.N',color:'#7dd3fc',step:4,layer:'power',
+  name:'泵负极 → 12V 负极',pts:[[880,790],[870,790],[870,530],[1150,530]],
+  desc:'泵的回流路径。',
+  note:'这条线不要和继电器控制信号平行走长距离，电机噪声容易窜进信号。'},
+ {id:'W17',a:'relay.NC',b:'relay.NC',color:'#5b6b7e',step:4,layer:'power',skip:true,
+  name:'NC 悬空',pts:[],desc:'常闭端空着不接。',note:'留着即可，别接到泵上。'},
+
+ /* ---- 5 保护件 + 共地 ---- */
+ {id:'W18',a:'d1.K',b:'d1.A',color:'#5b6b7e',step:5,layer:'protect',sym:'d1',
+  name:'D1 1N4007 反并联',pts:[[800,856],[882,856]],
+  desc:'吸收泵断电瞬间的反向感应高压。',
+  note:'条纹端（阴极）接泵正极，无条纹端接泵负极——接反等于把电源短路。'},
+ {id:'W19',a:'c1.P',b:'c1.N',color:'#5b6b7e',step:5,layer:'protect',sym:'c1',
+  name:'C1 1000µF 缓冲',pts:[[800,930],[882,930]],
+  desc:'泵启动瞬间补电流，压住电压跌落，避免主控复位。',
+  note:'长脚接 12V 正，短脚接负；耐压必须 ≥25V。'},
+ {id:'W20',a:'psu.N',b:'gnd.bus',color:'#ffb020',step:5,layer:'protect',dash:true,
+  name:'★ 共地（12V− → 主控 GND）',pts:[[1150,530],[1120,530],[1120,975],[465,975],[465,900]],
+  desc:'把 12V 电源负极与主控 GND 连成一个参考电位。',
+  note:'这条不接，继电器控制信号没有参考地，会出现"串口说开泵、泵不动"或随机吸合。'}
+];
+
+/* 虚拟母线与辅助元件（不属于任何引脚组） */
+const BUS_A=[ /* 竖直母线画法：[[x,y1],[x,y2],颜色,标签] */
+ {id:'gndbus',pts:[[465,280],[465,900]],color:'#2b3340',label:'GND 母线',w:4},
+ {id:'pbus',  pts:[[800,510],[800,826]],color:'#4cc9f0',label:'P 泵正母线',w:3},
+ {id:'nbus',  pts:[[870,530],[870,900]],color:'#7dd3fc',label:'N 泵负母线',w:3}
+];
+
+/* GND 母线接入点：把 hx/relay/led 的地线画到母线上 */
+const BUS_TAPS=[
+ {from:[480,280],to:[465,280],color:'#2b3340'},
+ {from:[480,510],to:[465,510],color:'#2b3340'},
+ {from:[320,425],to:[340,425],mid:[[340,425],[340,900],[465,900]],color:'#2b3340'}
+];
+
+/* =========================================================
+   2. 渲染接线图
+   ========================================================= */
+const svg=$('#wireSvg');
+const gDefs=mk('defs');
+const glow=mk('filter',{id:'glow',x:'-50%',y:'-50%',width:'200%',height:'200%'});
+glow.appendChild(mk('feGaussianBlur',{stdDeviation:'2.6',result:'b'}));
+const merge=mk('feMerge');
+merge.appendChild(mk('feMergeNode',{in:'b'}));
+merge.appendChild(mk('feMergeNode',{in:'SourceGraphic'}));
+glow.appendChild(merge); gDefs.appendChild(glow); svg.appendChild(gDefs);
+
+const layerG={
+  ctrl:mk('g',{id:'lay-ctrl'}), power:mk('g',{id:'lay-power'}),
+  protect:mk('g',{id:'lay-protect'}), labels:mk('g',{id:'lay-labels'}),
+  parts:mk('g',{id:'lay-parts'})
+};
+Object.values(layerG).forEach(g=>svg.appendChild(g));
+
+/* --- 2.1 元件框 --- */
+PARTS.forEach(p=>{
+  const g=mk('g',{class:'part'});
+  const r=mk('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:8,
+    fill:p.plain?'#0d1620':'#0e1723',stroke:'#263649','stroke-width':1.4});
+  g.appendChild(r);
+  if(p.plain){
+    g.appendChild(mk('rect',{x:p.x,y:p.y,width:p.w,height:p.h,rx:8,fill:'none',
+      stroke:'#2c3d52','stroke-width':1,'stroke-dasharray':'4 3'}));
+  }
+  const t=mk('text',{x:p.x+12,y:p.y+21,fill:'#cfe0f0','font-size':13,'font-weight':600});
+  t.textContent=p.title; g.appendChild(t);
+  /* 副标题放框底，避免与首个引脚标签压字 */
+  const s=mk('text',{x:p.x+12,y:p.y+p.h-9,fill:'#4d5f72','font-size':9.5,
+    'font-family':'JetBrains Mono,monospace'});
+  s.textContent=p.sub||''; g.appendChild(s);
+
+  p.pins.forEach(q=>{
+    const cx=q.x, cy=q.y;
+    g.appendChild(mk('circle',{cx,cy,r:4.2,fill:q.color,stroke:'#0b1118','stroke-width':1.2}));
+    if(q.label){
+      const isL=q.side==='L';
+      const tx=mk('text',{x:cx+(isL?10:-10),y:cy+4,fill:'#93a7bd','font-size':10.5,
+        'font-family':'JetBrains Mono,monospace','text-anchor':isL?'start':'end'});
+      tx.textContent=q.label; g.appendChild(tx);
+    }
+  });
+  /* 引脚短线从框内引出到框边（视觉上的"引脚腿"） */
+  layerG.parts.appendChild(g);
+});
+
+/* --- 2.2 母线 --- */
+BUS_A.forEach(b=>{
+  const g=layerG.parts;
+  const [a1,a2]=b.pts;
+  g.appendChild(mk('line',{x1:a1[0],y1:a1[1],x2:a2[0],y2:a2[1],
+    stroke:b.color,'stroke-width':b.w,'stroke-linecap':'round',opacity:.85}));
+  if(b.label){
+    const t=mk('text',{x:a1[0]-8,y:(a1[1]+a2[1])/2,fill:'#5b6b7e','font-size':10,
+      'font-family':'JetBrains Mono,monospace','text-anchor':'end',
+      transform:`rotate(-90 ${a1[0]-8} ${(a1[1]+a2[1])/2})`});
+    t.textContent=b.label; g.appendChild(t);
+  }
+});
+
+/* --- 2.3 飞线段落化 --- */
+function segsOf(pts){
+  const out=[];
+  for(let i=0;i<pts.length-1;i++){
+    const [x1,y1]=pts[i],[x2,y2]=pts[i+1];
+    out.push({x1,y1,x2,y2,dir:(Math.abs(y1-y2)<0.5)?'H':'V'});
+  }
+  return out;
+}
+const ALL_SEGS=[];
+WIRES.forEach(w=>{ if(w.skip) return; w.segs=segsOf(w.pts); ALL_SEGS.push(...w.segs.map(s=>({...s,wire:w}))); });
+
+/* 交叉点：水平段被别的竖直段穿过，画 hop 拱起 */
+function hopsFor(seg,wire){
+  if(seg.dir!=='H') return [];
+  const res=[];
+  ALL_SEGS.forEach(o=>{
+    if(o.wire===wire||o.dir!=='V') return;
+    const x=o.x1;
+    const inX = (x>Math.min(seg.x1,seg.x2)+6)&&(x<Math.max(seg.x1,seg.x2)-6);
+    const inY = (o.y1<seg.y1-1&&o.y2>seg.y1+1)||(o.y2<seg.y1-1&&o.y1>seg.y1+1);
+    if(inX&&inY) res.push(x);
+  });
+  return [...new Set(res)].sort((a,b)=>a-b);
+}
+
+/* 生成带 hop 的 path d */
+function pathD(segs,wire,hopR=5){
+  let d='';
+  segs.forEach((s,si)=>{
+    /* 起点统一补 M：竖直开头的线原来没有 M，整条路径作废 */
+    if(si===0) d+=`M ${s.x1} ${s.y1} `;
+    const hops=(s.dir==='H')?hopsFor(s,wire):[];
+    if(s.dir==='H'){
+      const dir=(s.x2>s.x1)?1:-1;
+      let cur=s.x1;
+      hops.forEach(hx=>{
+        d+=`L ${hx-hopR} ${s.y1} `;
+        d+=`A ${hopR} ${hopR} 0 0 ${dir>0?1:0} ${hx+hopR} ${s.y1} `;
+        cur=hx+hopR;
+      });
+      d+=`L ${s.x2} ${s.y2} `;
+    }else{
+      d+=`L ${s.x2} ${s.y2} `;
+    }
+  });
+  return d.trim();
+}
+
+/* --- 2.4 画线 --- */
+const wireEls={};
+WIRES.forEach(w=>{
+  if(w.skip) return;
+  const g=mk('g',{class:'wire','data-id':w.id});
+  const d=pathD(w.segs,w);
+  /* 白色光晕，让上层线在交叉处可读 */
+  g.appendChild(mk('path',{d,fill:'none',stroke:'#070b10','stroke-width':7.5,
+    'stroke-linecap':'round','stroke-linejoin':'round',opacity:.9}));
+  const p=mk('path',{d,fill:'none',stroke:w.color,'stroke-width':3.2,
+    'stroke-linecap':'round','stroke-linejoin':'round'});
+  if(w.dash) p.setAttribute('stroke-dasharray','7 5');
+  g.appendChild(p);
+  /* 端点小圆 */
+  const a=PIN[w.a], b=PIN[w.b];
+  if(a&&!w.sym) g.appendChild(mk('circle',{cx:a.x,cy:a.y,r:3.4,fill:w.color}));
+  if(b&&!w.sym) g.appendChild(mk('circle',{cx:b.x,cy:b.y,r:3.4,fill:w.color}));
+  layerG[w.layer==='power'?'power':(w.layer==='protect'?'protect':'ctrl')].appendChild(g);
+  wireEls[w.id]=g;
+
+  /* hover 命中加粗透明罩 */
+  const hit=mk('path',{d,fill:'none',stroke:'transparent','stroke-width':16,
+    style:'cursor:pointer'});
+  hit.addEventListener('mouseenter',()=>selectWire(w.id));
+  g.appendChild(hit);
+});
+
+/* --- 2.5 元件符号覆盖（二极管/电容画在线上） --- */
+function drawSym(){
+  const d1=PIN['d1.K'], d1b=PIN['d1.A'];
+  const midX=(d1.x+d1b.x)/2;
+  const gd=mk('g');
+  gd.appendChild(mk('rect',{x:midX-30,y:840,width:60,height:32,rx:4,fill:'#0d1620',stroke:'#4a5d72'}));
+  gd.appendChild(mk('path',{d:`M ${midX-14} 848 L ${midX-14} 864 L ${midX+2} 856 Z`,fill:'#8aa0b6'}));
+  gd.appendChild(mk('line',{x1:midX+2,y1:848,x2:midX+2,y2:864,stroke:'#8aa0b6','stroke-width':2}));
+  const t1=mk('text',{x:midX,y:836,fill:'#5b6b7e','font-size':9,'text-anchor':'middle',
+    'font-family':'JetBrains Mono,monospace'});
+  t1.textContent='▏◁ 条纹端朝泵+';gd.appendChild(t1);
+  layerG.protect.appendChild(gd);
+
+  const c1=PIN['c1.P'], c1b=PIN['c1.N'];
+  const cMid=(c1.x+c1b.x)/2;
+  const gc=mk('g');
+  gc.appendChild(mk('rect',{x:cMid-30,y:914,width:60,height:32,rx:4,fill:'#0d1620',stroke:'#4a5d72'}));
+  gc.appendChild(mk('line',{x1:cMid-14,y1:922,x2:cMid+14,y2:922,stroke:'#8aa0b6','stroke-width':2}));
+  gc.appendChild(mk('line',{x1:cMid-14,y1:932,x2:cMid+14,y2:932,stroke:'#8aa0b6','stroke-width':2}));
+  layerG.protect.appendChild(gc);
+}
+drawSym();
+
+/* --- 2.6 GND 分支 --- */
+BUS_TAPS.forEach(t=>{
+  const pts=[[t.from[0],t.from[1]]];
+  if(t.mid) t.mid.forEach(m=>pts.push(m));
+  pts.push([t.to[0],t.to[1]]);
+  const d=pts.map((p,i)=>(i?'L ':'M ')+p[0]+' '+p[1]).join(' ');
+  layerG.ctrl.appendChild(mk('path',{d,fill:'none',stroke:t.color,'stroke-width':2.6,
+    'stroke-linecap':'round','stroke-linejoin':'round',opacity:.9}));
+});
+
+/* --- 2.7 关键文字标注 --- */
+const NOTES=[
+ {x:180,y:300,t:'传感器四线先接',c:'#f472b6',size:11},
+ {x:700,y:96, t:'HX711 装在靠近秤的一侧，线越短越稳',c:'#5b6b7e',size:10.5},
+ {x:880,y:668,t:'泵必须独立 12V 供电\n只共地，不共用电源',c:'#ffb020',size:11,multi:true},
+ {x:960,y:620,t:'NO 常开：断电=关泵',c:'#4cc9f0',size:10.5},
+ {x:1090,y:960,t:'★ 12V− 必须接主控 GND',c:'#ffb020',size:11.5},
+ {x:1150,y:600,t:'独立电源，勿用主控 5V',c:'#5b6b7e',size:10.5}
+];
+NOTES.forEach(n=>{
+  const t=mk('text',{x:n.x,y:n.y,fill:n.c,'font-size':n.size,
+    'font-family':'JetBrains Mono,monospace'});
+  if(n.multi){
+    n.t.split('\n').forEach((line,i)=>{
+      const ts=mk('text',{x:n.x,y:n.y+i*15,fill:n.c,'font-size':n.size,
+        'font-family':'JetBrains Mono,monospace'});
+      ts.textContent=line; layerG.labels.appendChild(ts);
+    });
+  }else{
+    t.textContent=n.t; layerG.labels.appendChild(t);
+  }
+});
+
+/* =========================================================
+   3. 交互：选中 / 分层 / 分步
+   ========================================================= */
+let curWire=null;
+function selectWire(id){
+  curWire=id;
+  const w=WIRES.find(x=>x.id===id);
+  Object.entries(wireEls).forEach(([k,g])=>{
+    g.style.opacity = (k===id)?1:0.18;
+    g.style.filter   = (k===id)?'url(#glow)':'none';
+  });
+  $$('#wireTable tr').forEach(tr=>tr.classList.toggle('sel',tr.dataset.id===id));
+  const info=$('#wireInfo');
+  info.innerHTML=`
+    <h4>${w.id} · ${w.name}</h4>
+    <dl class="kv">
+      <dt>起点</dt><dd>${w.a}</dd>
+      <dt>终点</dt><dd>${w.b}</dd>
+      <dt>线色</dt><dd><span class="dot" style="background:${w.color};display:inline-block;
+        width:10px;height:10px;border-radius:50%;vertical-align:middle;margin-right:6px"></span>${w.color}</dd>
+      <dt>分组</dt><dd>${w.layer==='power'?'强电负载侧':(w.layer==='protect'?'保护件':'弱电控制侧')} · 第 ${w.step} 步</dd>
+    </dl>
+    <div style="font-size:12.5px;color:#c8d8e8">${w.desc}</div>
+    <div class="note">${w.note}</div>`;
+}
+function clearSelect(){
+  curWire=null;
+  Object.values(wireEls).forEach(g=>{g.style.opacity=1;g.style.filter='none';});
+  $$('#wireTable tr').forEach(tr=>tr.classList.remove('sel'));
+  $('#wireInfo').innerHTML='<p class="muted">把鼠标移到左边图上任意一条彩色飞线，或点下面的表格行。</p>';
+}
+svg.addEventListener('mouseleave',()=>{ if(!pinned) clearSelect(); });
+let pinned=false;
+
+/* 分步 */
+$$('.chip.step').forEach(b=>{
+  b.onclick=()=>{
+    $$('.chip.step').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    const s=+b.dataset.step;
+    Object.entries(wireEls).forEach(([k,g])=>{
+      const w=WIRES.find(x=>x.id===k);
+      const on=(s===0)||(w.step===s);
+      g.style.opacity=on?1:0.1;
+    });
+  };
+});
+
+/* 图层 */
+$$('.chip[data-layer]').forEach(b=>{
+  b.classList.toggle('on',true);
+  b.onclick=()=>{
+    b.classList.toggle('on');
+    const on=b.classList.contains('on');
+    const lay=b.dataset.layer;
+    if(lay==='labels'){ layerG.labels.style.display=on?'':'none'; return; }
+    if(lay==='ctrl'){ layerG.ctrl.style.display=on?'':'none'; return; }
+    if(lay==='power'){ layerG.power.style.display=on?'':'none'; return; }
+    if(lay==='protect'){ layerG.protect.style.display=on?'':'none'; return; }
+  };
+});
+
+/* 表格 */
+const tbody=$('#wireTable tbody');
+WIRES.filter(w=>!w.skip).forEach(w=>{
+  const tr=document.createElement('tr');
+  tr.dataset.id=w.id;
+  tr.innerHTML=`<td class="n">${w.id.slice(1)}</td>
+    <td class="p">${w.a}</td><td class="p">${w.b}</td>
+    <td><span class="dot" style="background:${w.color}"></span></td>
+    <td style="color:#9fb2c6">${w.name}</td>`;
+  tr.onclick=()=>{ pinned=true; selectWire(w.id); };
+  tbody.appendChild(tr);
+});
+
+/* =========================================================
+   4. 实时模拟器（与固件状态机同构）
+   ========================================================= */
+(function(){
+  const cv=$('#tank'), cx=cv.getContext('2d');
+  const cvCur=$('#curve'), cxCur=cvCur.getContext('2d');
+  let W=800,H=390, CW=800, CH=390;
+
+  /* ---------- 参数与状态 ---------- */
+  const P={ ratio:1.2, flow:12, lead:200, timeout:20, noise:1.0,
+            leadComp:true, topup:true, speed:1, minRice:20, maxTotal:4000 };
+  const S={
+    t:0, state:'IDLE', rice:0, water:0, tare:0,
+    pumpOn:false, tail:0, pumpStuck:false, frozen:false, frozenVal:0, clog:false,
+    target:0, startTotal:0, added:0, flowMeas:12,
+    flowPrevW:0, flowPrevT:0, topups:0, tFill:0, tSettle:0, doneAt:0,
+    sampleAcc:0, curve:[], err:'', lastW:0, peak:0
+  };
+  const PARTS=[];  /* 水流粒子 */
+  let pumpAng=0;
+
+  /* ---------- 日志 ---------- */
+  const logEl=$('#log');
+  function log(msg,cls=''){
+    if(!$('#swLog').checked && cls!=='') return;
+    const d=document.createElement('div');
+    d.innerHTML=`<span class="t">[${S.t.toFixed(2).padStart(6,' ')}s]</span> <span class="${cls}">${msg}</span>`;
+    logEl.appendChild(d);
+    if(logEl.childElementCount>400) logEl.removeChild(logEl.firstChild);
+    logEl.scrollTop=logEl.scrollHeight;
+  }
+
+  /* ---------- 泵与读数 ---------- */
+  function pumpOn(){ S.pumpOn=true; }
+  function pumpOff(){ S.pumpOn=false; if(P.lead>0) S.tail=P.lead/1000; }
+
+  function readWeight(){
+    let w=S.rice+S.water-S.tare;          /* 净读数（固件里 tareOffset 的作用） */
+    if(S.frozen) w=S.frozenVal;
+    if(P.noise>0) w+=(Math.random()-0.5)*2*P.noise;
+    return w;
+  }
+
+  /* ---------- 一轮 ---------- */
+  function startCycle(netRice){
+    const w=netRice;
+    S.rice=netRice+S.tare;                /* 绝对米量 */
+    S.target=w*P.ratio; S.startTotal=w; S.added=0;
+    S.topups=0; S.flowMeas=P.flow; S.flowPrevT=0; S.peak=0;
+    S.tFill=S.t; S.state='FILL'; S.err='';
+    pumpOn();
+    log(`投米 <b>${w.toFixed(1)} g</b> → 米水比 1:${P.ratio.toFixed(2)} → 目标水 <b>${S.target.toFixed(1)} g</b>`,'hi');
+    log('水泵开启，进入闭环注水…');
+    markPhase();
+  }
+
+  function finish(added){
+    pumpOff();
+    const err=added-S.target;
+    S.tare=S.rice+S.water;                /* 完成即去皮，回 IDLE 后读数为 0 */
+    S.state='DONE'; S.doneAt=S.t;
+    log(`✅ 到达目标，停泵。已加 ${added.toFixed(1)} g / 目标 ${S.target.toFixed(1)} g，误差 <b>${err>=0?'+':''}${err.toFixed(1)} g</b>`,'ok');
+    if(P.leadComp) log(`   提前断流补偿生效：余流延迟 ${P.lead} ms 已计入`,'ok');
+    markPhase();
+  }
+
+  function doFault(why){
+    pumpOff();
+    S.state='FAULT'; S.err=why;
+    log(`⚠️ FAULT：${why} —— 已强制停泵`,'err');
+    markPhase();
+  }
+
+  /* ---------- 控制步（200ms 一次，与固件一致） ---------- */
+  function controlStep(){
+    const w=readWeight();
+    S.lastW=w;
+
+    if(S.state==='IDLE'){
+      const rice=w;                        /* 简化：配重映射 1:1 */
+      if(rice>=P.minRice){
+        S.state='DETECT';
+        markPhase();
+        startCycle(rice);
+      }
+      return;
+    }
+
+    if(S.state==='FILL'){
+      const added=w-S.startTotal;
+      S.added=added;
+      if(added>S.peak) S.peak=added;
+      /* 实测流量 */
+      if(S.flowPrevT>0){
+        const dt=S.t-S.flowPrevT;
+        if(dt>=0.05){
+          let inst=(w-S.flowPrevW)/dt;
+          if(inst<0) inst=0;
+          if(inst>P.flow*4) inst=P.flow*4;
+          S.flowMeas=S.flowMeas*0.7+inst*0.3;
+        }
+      }
+      S.flowPrevW=w; S.flowPrevT=S.t;
+
+      const elapsed=S.t-S.tFill;
+      if(elapsed>P.timeout){ doFault(`TIMEOUT 注水超过 ${P.timeout}s`); return; }
+      if(w>P.maxTotal){ doFault('OVERFLOW 超过总重上限'); return; }
+      if(elapsed>3.0 && added<0.5){ doFault('DRY-RUN 泵未出水 / 称重读数不动'); return; }
+
+      const leadG = P.leadComp ? S.flowMeas*((P.lead+200)/1000) : 0;
+      const remain = S.target-added;
+      if(remain<=leadG){
+        pumpOff();
+        S.state='SETTLE'; S.tSettle=S.t;
+        log(`提前断流：剩余 ${remain.toFixed(1)} g ≤ 提前量 ${leadG.toFixed(1)} g（流量 ${S.flowMeas.toFixed(2)} g/s × ${P.lead+200} ms）`,'warn');
+        markPhase();
+      }
+      return;
+    }
+
+    if(S.state==='SETTLE'){
+      if(S.t-S.tSettle >= (P.lead+400)/1000){
+        const added=w-S.startTotal;
+        S.added=added;
+        if(added>S.peak) S.peak=added;
+        const deficit=S.target-added;
+        if(P.topup && deficit>1.5 && S.topups<3){
+          S.topups++;
+          pumpOn(); S.state='FILL'; S.tSettle=0;
+          log(`补泵 #${S.topups}：还差 ${deficit.toFixed(1)} g`,'warn');
+          markPhase();
+          return;
+        }
+        finish(added);
+      }
+      return;
+    }
+
+    if(S.state==='DONE'){
+      if(S.t-S.doneAt>2.0){
+        S.state='IDLE';
+        log('回到 IDLE，等待下一次投米（固件此时会 tare 去皮）','');
+        markPhase();
+      }
+    }
+  }
+
+  /* ---------- 物理推进 ---------- */
+  function tick(dt){
+    S.t+=dt;
+
+    /* 出水流量：泵在转 / 余流衰减 / 卡死无视关泵 / 堵塞为 0 */
+    let flow=0;
+    if(S.pumpStuck){
+      flow=P.flow;                        /* 卡死：无视一切停泵指令 */
+    }else if(S.pumpOn){
+      flow=P.flow;
+    }else if(S.tail>0){
+      flow=P.flow*(S.tail/(P.lead/1000||0.001));
+      S.tail=Math.max(0,S.tail-dt);
+    }
+    if(S.clog) flow=0;
+    S.rice=Math.max(0,S.rice);
+    S.water+=flow*dt;
+    if(flow>0) pumpAng+=dt*P.flow*0.6;
+
+    /* 采样节拍 */
+    S.sampleAcc+=dt;
+    while(S.sampleAcc>=0.2){ S.sampleAcc-=0.2; controlStep(); }
+
+    /* 曲线 */
+    if(S.curve.length===0 || S.t-S.curve[S.curve.length-1].t>0.08){
+      S.curve.push({t:S.t, w:S.rice+S.water, target:S.target||0});
+      while(S.curve.length>3000) S.curve.shift();
+    }
+
+    /* 水流粒子 */
+    if(flow>0.5 && Math.random()<Math.min(1,dt*40)){
+      PARTS.push({x:0,y:0,vy:0,r:2+Math.random()*2.4,life:1});
+    }
+    PARTS.forEach(p=>{p.vy+=520*dt; p.y+=p.vy*dt; p.life-=dt*0.7;});
+    for(let i=PARTS.length-1;i>=0;i--) if(PARTS[i].life<=0) PARTS.splice(i,1);
+  }
+
+  /* =========================================================
+     绘制
+     ========================================================= */
+  function resize(){
+    const dpr=Math.min(2,window.devicePixelRatio||1);
+    W=cv.clientWidth||800;
+    cv.width=Math.round(W*dpr); cv.height=Math.round(W/2.05*dpr);
+    cv.style.height=(W/2.05)+'px';
+    cx.setTransform(dpr,0,0,dpr,0,0);
+    H=W/2.05;
+
+    const w2=cvCur.clientWidth||800;
+    cvCur.width=Math.round(w2*dpr); cvCur.height=Math.round(w2/4.2*dpr);
+    cvCur.style.height=(w2/4.2)+'px';
+    cxCur.setTransform(dpr,0,0,dpr,0,0);
+    CW=w2; CH=w2/4.2;
+  }
+  window.addEventListener('resize',()=>{resize();draw();drawCurve();});
+  window.addEventListener('tabchange',e=>{
+    if(e.detail!=='sim') return;
+    resize(); draw(); drawCurve();
+  });
+
+  function tankGeom(){
+    const bx=W*0.16, by=H*0.10, bw=W*0.26, bh=H*0.66;
+    return {bx,by,bw,bh};
+  }
+
+  function draw(){
+    const g=tankGeom();
+    cx.clearRect(0,0,W,H);
+
+    /* 背景 */
+    const bg=cx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#0a1018'); bg.addColorStop(1,'#060a0f');
+    cx.fillStyle=bg; cx.fillRect(0,0,W,H);
+    cx.strokeStyle='rgba(40,60,80,.35)'; cx.lineWidth=1;
+    for(let x=0;x<W;x+=32){cx.beginPath();cx.moveTo(x,0);cx.lineTo(x,H);cx.stroke();}
+    for(let y=0;y<H;y+=32){cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+
+    /* ---- 秤台 ---- */
+    const platW=g.bw*1.5, platY=g.by+g.bh+8, platX=g.bx+g.bw/2-platW/2;
+    cx.fillStyle='#16222f'; cx.strokeStyle='#2b3d4f'; cx.lineWidth=1.5;
+    roundRect(cx,platX,platY,platW,16,4); cx.fill(); cx.stroke();
+    /* 应变片 */
+    [0.18,0.82].forEach(f=>{
+      const sx=platX+platW*f-14;
+      cx.fillStyle='#0f1b26'; cx.strokeStyle='#2f4a5e';
+      roundRect(cx,sx,platY-7,28,12,3); cx.fill(); cx.stroke();
+    });
+    cx.fillStyle='#4a6d86'; cx.font='10px "JetBrains Mono",monospace'; cx.textAlign='center';
+    cx.fillText('5kg LOAD CELL + HX711', platX+platW/2, platY+30);
+
+    /* ---- 容器 ---- */
+    const innerTop=g.by+14, innerBot=g.by+g.bh-10, innerH=innerBot-innerTop;
+    /* 玻璃 */
+    cx.save();
+    cx.fillStyle='rgba(20,34,48,.55)';
+    roundRect(cx,g.bx,g.by,g.bw,g.bh,10); cx.fill();
+    /* 内容裁剪 */
+    cx.beginPath(); roundRect(cx,g.bx+3,g.by+3,g.bw-6,g.bh-6,8); cx.clip();
+
+    /* 总量 → 高度 */
+    const capFrac=f=>Math.max(0,Math.min(1,f));
+    /* 可视容量上限：500g 米(约600体积)+600g 水 = 1200，正好画满容器 */
+    const VOL_MAX=1200;
+    const riceH=capFrac(S.rice*1.15/VOL_MAX)*innerH;
+    const waterTop=capFrac((S.rice*1.15+S.water)/VOL_MAX)*innerH;
+    const riceTopY=innerBot-riceH;
+    const waterTopY=innerBot-waterTop;
+
+    /* 水（下层到水面） */
+    if(waterTop>riceH+1){
+      const wg=cx.createLinearGradient(0,waterTopY,0,innerBot);
+      wg.addColorStop(0,'rgba(70,170,220,.55)');
+      wg.addColorStop(1,'rgba(30,110,165,.75)');
+      cx.fillStyle=wg;
+      cx.beginPath();
+      cx.moveTo(g.bx,innerBot);
+      cx.lineTo(g.bx,waterTopY);
+      /* 水面波动 */
+      const step=8;
+      for(let x=g.bx;x<=g.bx+g.bw;x+=step){
+        const y=waterTopY+Math.sin((x*0.06)+S.t*3.2)*2.2;
+        cx.lineTo(x,y);
+      }
+      cx.lineTo(g.bx+g.bw,innerBot);
+      cx.closePath(); cx.fill();
+      /* 水面高光 */
+      cx.strokeStyle='rgba(150,220,255,.5)'; cx.lineWidth=1.4;
+      cx.beginPath();
+      for(let x=g.bx;x<=g.bx+g.bw;x+=step){
+        const y=waterTopY+Math.sin((x*0.06)+S.t*3.2)*2.2;
+        if(x===g.bx) cx.moveTo(x,y); else cx.lineTo(x,y);
+      }
+      cx.stroke();
+    }
+
+    /* 米层 */
+    if(riceH>1){
+      const rg=cx.createLinearGradient(0,riceTopY,0,innerBot);
+      rg.addColorStop(0,'#e9d7a8'); rg.addColorStop(1,'#c9b383');
+      cx.fillStyle=rg;
+      cx.fillRect(g.bx,riceTopY,g.bw,riceH);
+      /* 颗粒纹理 */
+      cx.fillStyle='rgba(150,125,80,.55)';
+      const seed=1234;
+      for(let i=0;i<260;i++){
+        const px=g.bx+((Math.sin(i*12.9898+seed)*43758.5453)%1+1)%1*g.bw;
+        const py=riceTopY+((Math.sin(i*78.233+seed)*43758.5453)%1+1)%1*riceH;
+        cx.beginPath(); cx.ellipse(px,py,2.2,1.3,0.5,0,6.3); cx.fill();
+      }
+      /* 米层顶面 */
+      cx.strokeStyle='rgba(255,245,215,.55)'; cx.lineWidth=1.2;
+      cx.beginPath(); cx.moveTo(g.bx,riceTopY); cx.lineTo(g.bx+g.bw,riceTopY); cx.stroke();
+    }
+
+    /* 目标水位虚线 */
+    if(S.target>0){
+      const tgtTop=capFrac((S.rice*1.15+S.target)/VOL_MAX)*innerH;
+      const ty=innerBot-tgtTop;
+      cx.setLineDash([6,5]); cx.strokeStyle='rgba(255,176,32,.85)'; cx.lineWidth=1.6;
+      cx.beginPath(); cx.moveTo(g.bx,ty); cx.lineTo(g.bx+g.bw,ty); cx.stroke();
+      cx.setLineDash([]);
+      cx.fillStyle='rgba(255,176,32,.95)'; cx.font='10.5px "JetBrains Mono",monospace';
+      cx.textAlign='left'; cx.fillText('TARGET',g.bx+6,ty-6);
+    }
+    cx.restore();
+
+    /* 玻璃边框 */
+    cx.strokeStyle='rgba(120,165,200,.55)'; cx.lineWidth=2;
+    roundRect(cx,g.bx,g.by,g.bw,g.bh,10); cx.stroke();
+    /* 玻璃高光 */
+    cx.strokeStyle='rgba(200,235,255,.13)'; cx.lineWidth=6;
+    cx.beginPath(); cx.moveTo(g.bx+10,g.by+16); cx.lineTo(g.bx+10,g.by+g.bh-20); cx.stroke();
+
+    /* ---- 泵 ---- */
+    const px=W*0.70, py=H*0.66, pr=Math.min(46,W*0.055);
+    cx.save();
+    cx.translate(px,py);
+    cx.fillStyle='#121d29'; cx.strokeStyle='#2c4256'; cx.lineWidth=2;
+    cx.beginPath(); cx.arc(0,0,pr,0,6.3); cx.fill(); cx.stroke();
+    cx.beginPath(); cx.arc(0,0,pr*0.62,0,6.3); cx.stroke();
+    /* 叶轮 */
+    cx.strokeStyle=S.pumpOn||S.pumpStuck?'#4cc9f0':'#2c4256'; cx.lineWidth=3;
+    for(let i=0;i<5;i++){
+      const a=pumpAng+i*1.2566;
+      cx.beginPath();
+      cx.moveTo(Math.cos(a)*pr*0.2,Math.sin(a)*pr*0.2);
+      cx.lineTo(Math.cos(a)*pr*0.56,Math.sin(a)*pr*0.56);
+      cx.stroke();
+    }
+    cx.fillStyle=S.pumpOn?'#4cc9f0':'#25384a';
+    cx.beginPath(); cx.arc(0,0,pr*0.14,0,6.3); cx.fill();
+    cx.restore();
+    cx.fillStyle='#5b7891'; cx.font='10.5px "JetBrains Mono",monospace'; cx.textAlign='center';
+    cx.fillText('12V PUMP',px,py+pr+16);
+
+    /* ---- 水管 ---- */
+    const pipeY=g.by-26, spoutX=g.bx+g.bw/2;
+    cx.strokeStyle='#25404f'; cx.lineWidth=9; cx.lineCap='round';
+    cx.beginPath();
+    cx.moveTo(px,py-pr+4);
+    cx.lineTo(px,pipeY);
+    cx.lineTo(spoutX+10,pipeY);
+    cx.stroke();
+    cx.strokeStyle='#31596e'; cx.lineWidth=4;
+    cx.beginPath(); cx.moveTo(px,py-pr+4); cx.lineTo(px,pipeY); cx.lineTo(spoutX+10,pipeY); cx.stroke();
+    /* 管口 */
+    cx.fillStyle='#3a6379';
+    cx.fillRect(spoutX-4,pipeY-4,12,10);
+
+    /* ---- 水流粒子 ---- */
+    if(PARTS.length){
+      cx.fillStyle='rgba(140,225,255,.9)';
+      PARTS.forEach(p=>{
+        const x=spoutX+2, y=pipeY+8+p.y;
+        cx.beginPath(); cx.ellipse(x+p.x*0.4,y,p.r*0.7,p.r*1.8,0,0,6.3); cx.fill();
+      });
+    }
+
+    /* ---- 侧栏读数 ---- */
+    const bx2=W*0.80, by2=H*0.08;
+    cx.textAlign='left';
+    cx.fillStyle='#4a6d86'; cx.font='11px "JetBrains Mono",monospace';
+    cx.fillText('LIVE READOUT',bx2,by2);
+    const rows=[
+      ['TOTAL',(S.rice+S.water).toFixed(1)+' g','#d8e4f2'],
+      ['RICE', S.rice.toFixed(1)+' g','#e9d7a8'],
+      ['WATER',S.water.toFixed(1)+' g','#7dd3fc'],
+      ['TARGET',S.target.toFixed(1)+' g','#ffb020'],
+      ['FLOW',S.flowMeas.toFixed(2)+' g/s','#4cc9f0']
+    ];
+    rows.forEach((r,i)=>{
+      const y=by2+26+i*30;
+      cx.fillStyle='#3f566b'; cx.font='10.5px "JetBrains Mono",monospace';
+      cx.fillText(r[0],bx2,y);
+      cx.fillStyle=r[2]; cx.font='600 15px "JetBrains Mono",monospace';
+      cx.fillText(r[1],bx2+72,y+1);
+    });
+
+    /* ---- 状态角标 ---- */
+    const col={IDLE:'#4a6d86',DETECT:'#a78bfa',FILL:'#4cc9f0',SETTLE:'#ffb020',
+               DONE:'#3ddc97',FAULT:'#ff4d5e'}[S.state]||'#4a6d86';
+    cx.fillStyle=col; cx.font='600 12px "JetBrains Mono",monospace'; cx.textAlign='right';
+    cx.fillText(S.state, W-16, 26);
+    if(S.err){ cx.fillStyle='#ff4d5e'; cx.font='11px "JetBrains Mono",monospace';
+      cx.textAlign='right'; cx.fillText(S.err, W-16, 44); }
+
+    /* FAULT 红框 */
+    if(S.state==='FAULT'){
+      cx.strokeStyle='rgba(255,77,94,'+(0.4+0.3*Math.sin(S.t*8))+')';
+      cx.lineWidth=6; cx.strokeRect(3,3,W-6,H-6);
+    }
+  }
+
+  function roundRect(c,x,y,w,h,r){
+    c.beginPath();
+    c.moveTo(x+r,y);
+    c.lineTo(x+w-r,y); c.quadraticCurveTo(x+w,y,x+w,y+r);
+    c.lineTo(x+w,y+h-r); c.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    c.lineTo(x+r,y+h); c.quadraticCurveTo(x,y+h,x,y+h-r);
+    c.lineTo(x,y+r); c.quadraticCurveTo(x,y,x+r,y);
+    c.closePath();
+  }
+
+  /* ---------- 曲线 ---------- */
+  function drawCurve(){
+    cxCur.clearRect(0,0,CW,CH);
+    cxCur.fillStyle='#070b10'; cxCur.fillRect(0,0,CW,CH);
+    const padL=52,padR=14,padT=14,padB=24;
+    const iw=CW-padL-padR, ih=CH-padT-padB;
+
+    const data=S.curve;
+    const t1=data.length?data[data.length-1].t:1;
+    const t0=Math.max(0,t1-30);
+    let maxW=200;
+    data.forEach(d=>{ if(d.t>=t0) maxW=Math.max(maxW,d.w,d.target); });
+    maxW=Math.ceil(maxW/100)*100+100;
+
+    /* 网格 */
+    cxCur.strokeStyle='rgba(35,55,72,.8)'; cxCur.lineWidth=1;
+    cxCur.fillStyle='#3f566b'; cxCur.font='10px "JetBrains Mono",monospace';
+    for(let i=0;i<=4;i++){
+      const y=padT+ih*i/4;
+      cxCur.beginPath(); cxCur.moveTo(padL,y); cxCur.lineTo(CW-padR,y); cxCur.stroke();
+      cxCur.textAlign='right';
+      cxCur.fillText(Math.round(maxW*(1-i/4)),padL-6,y+3);
+    }
+    /* 目标线 */
+    if(S.target>0){
+      const ty=padT+ih-(S.target/maxW)*ih;
+      cxCur.setLineDash([5,4]); cxCur.strokeStyle='#ffb020'; cxCur.lineWidth=1.4;
+      cxCur.beginPath(); cxCur.moveTo(padL,ty); cxCur.lineTo(CW-padR,ty); cxCur.stroke();
+      cxCur.setLineDash([]);
+    }
+    /* 曲线 */
+    if(data.length>1){
+      cxCur.strokeStyle='#4cc9f0'; cxCur.lineWidth=2; cxCur.beginPath();
+      let started=false;
+      data.forEach(d=>{
+        if(d.t<t0) return;
+        const x=padL+((d.t-t0)/(Math.max(0.001,t1-t0)))*iw;
+        const y=padT+ih-(d.w/maxW)*ih;
+        if(!started){cxCur.moveTo(x,y);started=true;} else cxCur.lineTo(x,y);
+      });
+      cxCur.stroke();
+      /* 光晕 */
+      cxCur.strokeStyle='rgba(76,201,240,.18)'; cxCur.lineWidth=7;
+      cxCur.beginPath();
+      started=false;
+      data.forEach(d=>{
+        if(d.t<t0) return;
+        const x=padL+((d.t-t0)/(Math.max(0.001,t1-t0)))*iw;
+        const y=padT+ih-(d.w/maxW)*ih;
+        if(!started){cxCur.moveTo(x,y);started=true;} else cxCur.lineTo(x,y);
+      });
+      cxCur.stroke();
+    }
+    cxCur.fillStyle='#3f566b'; cxCur.font='10px "JetBrains Mono",monospace'; cxCur.textAlign='left';
+    cxCur.fillText('0s',padL,CH-8);
+    cxCur.textAlign='right';
+    cxCur.fillText(t1.toFixed(0)+'s',CW-padR,CH-8);
+  }
+
+  /* ---------- 界面同步 ---------- */
+  function markPhase(){
+    $$('.phase').forEach(p=>{
+      const on=p.dataset.ph===S.state;
+      p.classList.toggle('on',on);
+      p.classList.toggle('ok',on&&S.state==='DONE');
+      p.classList.toggle('bad',on&&S.state==='FAULT');
+    });
+    $('#simStateTag').textContent=S.state;
+  }
+  function syncUI(){
+    $('#simClock').textContent='t = '+S.t.toFixed(2)+' s';
+    $('#sRice').innerHTML=S.rice.toFixed(0)+'<small>g</small>';
+    $('#sTarget').innerHTML=S.target.toFixed(0)+'<small>g</small>';
+    $('#sWater').innerHTML=S.water.toFixed(1)+'<small>g</small>';
+    const remain=Math.max(0,S.target-S.added);
+    $('#sRemain').innerHTML=(S.target>0?remain.toFixed(1):'0')+'<small>g</small>';
+    $('#sFlow').innerHTML=S.flowMeas.toFixed(1)+'<small>g/s</small>';
+    $('#sTotal').innerHTML=(S.rice+S.water).toFixed(0)+'<small>g</small>';
+    const errEl=$('#sErr');
+    if(S.state==='DONE'){
+      const e=S.added-S.target;
+      errEl.innerHTML=(e>=0?'+':'')+e.toFixed(1)+'<small>g</small>';
+      errEl.parentElement.className='stat '+(Math.abs(e)<3?'good':'warn');
+    }else{
+      errEl.innerHTML='—'; errEl.parentElement.className='stat';
+    }
+    $('#cursorTag').textContent=S.peak>0?('峰值 '+S.peak.toFixed(1)+' g'):'—';
+  }
+
+  /* ---------- 主循环 ---------- */
+  let last=performance.now();
+  function loop(now){
+    const raw=Math.min(0.06,(now-last)/1000);
+    last=now;
+    tick(raw*P.speed);
+    draw();
+    drawCurve();
+    syncUI();
+    requestAnimationFrame(loop);
+  }
+
+  /* ---------- 控件绑定 ---------- */
+  /* 提示条：米量 / 比例 / 超时 三者是否够用 */
+  function updateHint(){
+    const r=P.ratio, t=P.timeout, g=+$('#inRice').value;
+    const need=Math.round(g*r/P.flow);
+    $('#presetHint').innerHTML = (t < need*1.15)
+      ? '<b style="color:#ff4d5e">超时不够</b>：'+g+'g 米 × '+r.toFixed(2)+' 要 '+need+' 秒，超时只有 '+t+' 秒 —— 固件会在半路掐断，粥做不成。'
+      : '约需 '+need+' 秒（超时 '+t+' 秒，余量 '+(t-need)+' 秒）。';
+  }
+  $('#inRice').oninput=e=>{ $('#vRice').textContent=e.target.value; updateHint(); };
+  $('#inRatio').oninput=e=>{
+    P.ratio=e.target.value/100; $('#vRatio').textContent=P.ratio.toFixed(2);
+    clearPreset();
+  };
+  $('#inFlow').oninput=e=>{
+    P.flow=+e.target.value; $('#vFlow').textContent=P.flow.toFixed(1); updateHint();
+  };
+  $('#inLead').oninput=e=>{
+    P.lead=+e.target.value; $('#vLead').textContent=P.lead;
+  };
+  $('#inTo').oninput=e=>{
+    P.timeout=+e.target.value; $('#vTo').textContent=P.timeout;
+    clearPreset();
+  };
+
+  /* 8 档配方：点一下 = 键盘按一下，ratio 和 timeout 一起换 */
+  function clearPreset(){
+    $$('#presetRow input').forEach(i=>{ i.checked=false; });
+    $('#vPreset').textContent='自定义';
+  }
+  $$('#presetRow input').forEach(inp=>{
+    inp.onchange=()=>{
+      const r=+inp.dataset.r, t=+inp.dataset.t;
+      P.ratio=r; P.timeout=t;
+      $('#inRatio').value=Math.round(r*100);
+      $('#inTo').value=t;
+      $('#vRatio').textContent=r.toFixed(2);
+      $('#vTo').textContent=t;
+      $('#vPreset').textContent=inp.dataset.n;
+      updateHint();
+    };
+  });
+  $('#inNoise').oninput=e=>{
+    P.noise=e.target.value/10; $('#vNoise').textContent=P.noise.toFixed(1);
+  };
+  $('#swLead').onchange=e=>{ P.leadComp=e.target.checked; };
+  $('#swTopup').onchange=e=>{ P.topup=e.target.checked; };
+  $$('#segSpeed button').forEach(b=>{
+    b.onclick=()=>{
+      $$('#segSpeed button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      P.speed=+b.dataset.sp;
+      $('#vSpeed').textContent=P.speed+'×';
+    };
+  });
+
+  $('#btnStart').onclick=()=>{
+    const r=+$('#inRice').value;
+    S.rice=r; S.water=0; S.tare=0; S.frozen=false; S.pumpStuck=false; S.clog=false;
+    S.tail=0; S.err=''; S.state='IDLE'; S.curve=[];
+    log(`── 新的一轮：投米 ${r} g ──`,'hi');
+    controlStep();
+  };
+  $('#btnStop').onclick=()=>{
+    pumpOff(); S.state='IDLE'; S.err='用户急停';
+    log('⏹ 用户急停，泵已关闭','err');
+    markPhase();
+  };
+  $('#btnClear').onclick=()=>{
+    S.rice=0; S.water=0; S.tare=0; S.target=0; S.added=0; S.state='IDLE';
+    S.pumpOn=false; S.tail=0; S.pumpStuck=false; S.frozen=false; S.clog=false;
+    S.err=''; S.curve=[]; S.topups=0; S.peak=0;
+    logEl.innerHTML=''; log('系统复位','');
+    markPhase();
+  };
+  $('#btnJam').onclick=()=>{
+    S.pumpStuck=true; log('💉 注入故障：泵卡死（无视关泵指令，持续出水）','err');
+  };
+  $('#btnFrozen').onclick=()=>{
+    S.frozen=true; S.frozenVal=S.rice+S.water-S.tare;
+    log('💉 注入故障：称重传感器卡死（读数冻结在 '+S.frozenVal.toFixed(1)+' g）','err');
+  };
+  $('#btnClog').onclick=()=>{
+    S.clog=true; log('💉 注入故障：管路堵塞（泵在转但不出水）','err');
+  };
+  $('#btnClearLog').onclick=()=>{ logEl.innerHTML=''; };
+
+  /* ================================================================
+     实物装配图：按真实器件外观与真实引脚方位绘制
+     UNO 布局严格按实物：USB/DC 座/复位在左短边，
+     上长边 = DIGITAL 排（8、13 在这里），下长边 = POWER 排 + ANALOG 排（5V、GND、A0、A1 在这里）
+     ================================================================ */
+  const SVGNS='http://www.w3.org/2000/svg';
+  const N=(t,a)=>{const e=document.createElementNS(SVGNS,t);for(const k in (a||{}))e.setAttribute(k,a[k]);return e;};
+  const put=(g,e)=>{g.appendChild(e);return e;};
+  const RC=(g,x,y,w,h,o)=>{const e=N('rect',Object.assign({x,y,width:w,height:h},o||{}));g.appendChild(e);return e;};
+  const CI=(g,cx,cy,r,o)=>{const e=N('circle',Object.assign({cx,cy,r},o||{}));g.appendChild(e);return e;};
+  const PT=(g,d,o)=>{const e=N('path',Object.assign({d,fill:'none'},o||{}));g.appendChild(e);return e;};
+  const LN=(g,x1,y1,x2,y2,o)=>{const e=N('line',Object.assign({x1,y1,x2,y2},o||{}));g.appendChild(e);return e;};
+  const TX=(g,x,y,s,o)=>{const e=N('text',Object.assign({x,y,fill:'#8ba0b5','font-size':10,
+    'font-family':'JetBrains Mono,ui-monospace,monospace'},o||{}));e.textContent=s;g.appendChild(e);return e;};
+
+  /* 杜邦线：贝塞尔曲线 + 两端塑料头 */
+  function dupont(g,x1,y1,x2,y2,color,width,bend){
+    const b=bend===undefined?0.42:bend;
+    const cx1=x1+(x2-x1)*b, cy1=y1+(y2-y1)*(1-b)*0.9-14;
+    const cx2=x1+(x2-x1)*(1-b), cy2=y2-(y1-y2)*0.1-14;
+    const d='M'+x1+','+y1+'C'+cx1+','+cy1+' '+cx2+','+cy2+' '+x2+','+y2;
+    PT(g,d,{stroke:'#05090d','stroke-width':(width||2.6)+2.4,'stroke-linecap':'round',opacity:.55});
+    PT(g,d,{stroke:color,'stroke-width':width||2.6,'stroke-linecap':'round'});
+    /* 杜邦头 */
+    RC(g,x1-4,y1-3.2,8,6.4,{rx:1.6,fill:'#151b23',stroke:'#2b3644','stroke-width':.8});
+    RC(g,x2-4,y2-3.2,8,6.4,{rx:1.6,fill:'#151b23',stroke:'#2b3644','stroke-width':.8});
+  }
+
+  function drawBreadboard(g,x,y,w,h){
+    const grp=N('g',{});
+    g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:7,fill:'#ddd8cd',stroke:'#b9b2a4','stroke-width':1.4});
+    RC(grp,x+3,y+3,w-6,h-6,{rx:5,fill:'#eae5db'});
+    /* 中缝 */
+    RC(grp,x+24,y+h/2-11,w-48,22,{rx:3,fill:'#d3cdc0'});
+    /* 孔阵列 */
+    const up=y+16, uh=h/2-30, dn=y+h/2+14, dh=h/2-30;
+    RC(grp,x+30,up,w-60,uh,{fill:'url(#hbp)'});
+    RC(grp,x+30,dn,w-60,dh,{fill:'url(#hbp)'});
+    /* 电源轨：左右各一条，红蓝双线 */
+    [[x+8,'#c94a4a'],[x+w-19,'#3b6fd0']].forEach(([bx,col])=>{
+      RC(grp,bx,y+14,11,h-28,{rx:2,fill:'#cfc9bd'});
+      LN(grp,bx+5.5,y+18,bx+5.5,y+h-18,{stroke:col,'stroke-width':1.1,opacity:.85});
+      for(let i=0;i<9;i++)CI(grp,bx+5.5,y+24+i*((h-46)/8),1.9,{fill:'#232c37'});
+    });
+    /* 丝印 */
+    TX(grp,x+w/2,y+11,'+  −  +  −   ·  830 POINT BREADBOARD   ·   +  −  +  −',
+      {fill:'#9a9384','font-size':8,'text-anchor':'middle','letter-spacing':'1.2'});
+    TX(grp,x+30,y+h/2+5,'a  b  c  d  e',{fill:'#b0a898','font-size':7.5});
+    return {x,y,w,h,up,dn};
+  }
+
+  function drawArduinoUno(g,x,y,w,h){
+    /* 真实 UNO：68.6×53.4mm。USB/DC/复位在左短边；上=DIGITAL，下=POWER+ANALOG */
+    const grp=N('g',{}); g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:9,fill:'#1f6bb0',stroke:'#123f68','stroke-width':1.6});
+    RC(grp,x+2,y+2,w-4,h-4,{rx:7,fill:'#2476be'});
+    /* 板边铜箔走线质感 */
+    PT(grp,'M'+(x+14)+','+(y+h-14)+' L'+(x+w-14)+','+(y+h-14),{stroke:'#1a5c99','stroke-width':1});
+    /* 复位按钮 */
+    CI(grp,x+30,y+30,11.5,{fill:'#8f2020',stroke:'#5c1414','stroke-width':1.2});
+    CI(grp,x+30,y+30,7,{fill:'#c73a3a'});
+    TX(grp,x+30,y+52,'RESET',{fill:'#bfe0ff','font-size':7.5,'text-anchor':'middle'});
+    /* USB-B：左短边中上 */
+    RC(grp,x-13,y+66,58,44,{rx:3,fill:'#b9c0c7',stroke:'#7e868e','stroke-width':1.2});
+    RC(grp,x-11,y+70,16,36,{rx:2,fill:'#8e969e'});
+    TX(grp,x+16,y+124,'USB',{fill:'#cfe6ff','font-size':8,'text-anchor':'middle'});
+    /* DC 电源座：左短边下部 */
+    RC(grp,x-11,y+150,52,38,{rx:4,fill:'#14181d',stroke:'#3a424b','stroke-width':1.2});
+    CI(grp,x+6,y+169,7,{fill:'#000'});
+    TX(grp,x+16,y+200,'DC 7-12V',{fill:'#cfe6ff','font-size':8,'text-anchor':'middle'});
+    /* 主控芯片 */
+    RC(grp,x+112,y+96,58,58,{rx:2,fill:'#15191f',stroke:'#0a0d11'});
+    for(let i=0;i<7;i++){ LN(grp,x+112,y+102+i*8,x+106,y+102+i*8,{stroke:'#9aa4ae','stroke-width':1.6});
+                          LN(grp,x+170,y+102+i*8,x+176,y+102+i*8,{stroke:'#9aa4ae','stroke-width':1.6}); }
+    TX(grp,x+141,y+128,'ATmega',{fill:'#6d7883','font-size':7,'text-anchor':'middle'});
+    TX(grp,x+141,y+137,'328P',{fill:'#6d7883','font-size':7,'text-anchor':'middle'});
+    /* 晶振 + 电解电容 */
+    RC(grp,x+196,y+70,34,17,{rx:6,fill:'#c3cad1',stroke:'#8d959d'});
+    CI(grp,x+72,y+186,11,{fill:'#2a3038',stroke:'#4a545e'}); TX(grp,x+72,y+189,'+',{fill:'#8b96a1','font-size':9,'text-anchor':'middle'});
+    CI(grp,x+100,y+186,9,{fill:'#2a3038',stroke:'#4a545e'});
+    /* 丝印 */
+    TX(grp,x+w*0.62,y+64,'UNO',{fill:'#a8d6ff','font-size':19,'font-weight':700,'letter-spacing':'2'});
+    TX(grp,x+w*0.62,y+78,'R3  COMPATIBLE',{fill:'#7fb6e8','font-size':7.5,'letter-spacing':'1.4'});
+
+    /* ---- 上长边：DIGITAL 排（18 孔，分 10+8 两段） ---- */
+    const dy=y, pitch=10.6, x0=x+64;
+    RC(grp,x0-6,dy-8,(pitch*10)+12,16,{rx:2,fill:'#101418'});
+    RC(grp,x0+pitch*10+8,dy-8,(pitch*8)+12,16,{rx:2,fill:'#101418'});
+    const dig=[[0,'SCL'],[1,'SDA'],[2,'AREF'],[3,'GND'],[4,'13'],[5,'12'],[6,'~11'],[7,'~10'],[8,'~9'],[9,'8']];
+    const dig2=[[0,'7'],[1,'~6'],[2,'~5'],[3,'4'],[4,'~3'],[5,'2'],[6,'TX1'],[7,'RX0']];
+    dig.forEach(([i,l])=>{
+      const px=x0+i*pitch;
+      CI(grp,px,dy,2.4,{fill:'#0a0d10'});
+      CI(grp,px,dy,1.4,{fill:'#c9a227'});
+      TX(grp,px,dy-11,l,{fill:(l==='8'||l==='13')?'#ffd23f':'#bfe0ff','font-size':7,'text-anchor':'middle',
+        'font-weight':(l==='8'||l==='13')?700:400});
+    });
+    dig2.forEach(([i,l])=>{
+      const px=x0+pitch*10+14+i*pitch;
+      CI(grp,px,dy,2.4,{fill:'#0a0d10'});
+      CI(grp,px,dy,1.4,{fill:'#c9a227'});
+      TX(grp,px,dy-11,l,{fill:'#bfe0ff','font-size':7,'text-anchor':'middle'});
+    });
+    TX(grp,x0+pitch*5,dy+16,'DIGITAL (PWM~)',{fill:'#8fc4ee','font-size':7.5,'text-anchor':'middle','letter-spacing':'.8'});
+    TX(grp,x0+pitch*13+8,dy+16,'DIGITAL',{fill:'#8fc4ee','font-size':7.5,'text-anchor':'middle','letter-spacing':'.8'});
+
+    /* ---- 下长边：POWER 排（左）+ ANALOG 排（右） ---- */
+    const by=y+h, px0=x+64;
+    const pwr=[[0,'IOREF'],[1,'RESET'],[2,'3V3'],[3,'5V'],[4,'GND'],[5,'GND'],[6,'VIN']];
+    const ana=[[0,'A0'],[1,'A1'],[2,'A2'],[3,'A3'],[4,'A4'],[5,'A5']];
+    RC(grp,px0-6,by-8,(pitch*7)+12,16,{rx:2,fill:'#101418'});
+    RC(grp,px0+pitch*7+16,by-8,(pitch*6)+12,16,{rx:2,fill:'#101418'});
+    const keyP=['5V','GND'], keyA=['A0','A1'];
+    pwr.forEach(([i,l])=>{
+      const px=px0+i*pitch;
+      CI(grp,px,by,2.4,{fill:'#0a0d10'});
+      CI(grp,px,by,1.4,{fill:'#c9a227'});
+      TX(grp,px,by+12,l,{fill:keyP.indexOf(l)>=0?'#ffd23f':'#bfe0ff','font-size':6.4,'text-anchor':'middle',
+        'font-weight':keyP.indexOf(l)>=0?700:400});
+    });
+    ana.forEach(([i,l])=>{
+      const px=px0+pitch*7+16+i*pitch;
+      CI(grp,px,by,2.4,{fill:'#0a0d10'});
+      CI(grp,px,by,1.4,{fill:'#c9a227'});
+      TX(grp,px,by+12,l,{fill:keyA.indexOf(l)>=0?'#ffd23f':'#bfe0ff','font-size':6.4,'text-anchor':'middle',
+        'font-weight':keyA.indexOf(l)>=0?700:400});
+    });
+    TX(grp,px0+pitch*3,by-16,'POWER',{fill:'#8fc4ee','font-size':7.5,'text-anchor':'middle','letter-spacing':'.8'});
+    TX(grp,px0+pitch*10+16,by-16,'ANALOG IN',{fill:'#8fc4ee','font-size':7.5,'text-anchor':'middle','letter-spacing':'.8'});
+
+    /* 返回关键引脚坐标 —— 方位就是实物方位 */
+    const pin=(i)=>px0+i*pitch;
+    return {
+      x,y,w,h,
+      d5v:[pin(3),by], dgnd:[pin(4),by], d3v3:[pin(2),by],
+      a0:[px0+pitch*7+16,by], a1:[px0+pitch*7+16+pitch,by],
+      d8:[x0+pitch*9,dy], d13:[x0+pitch*4,dy],
+      din:[x0+pitch*10+14+pitch*0,dy],
+      usb:[x-13,y+88], dc:[x-11,y+169]
+    };
+  }
+
+  function drawHX711(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:3,fill:'#0e6b45',stroke:'#08512f','stroke-width':1.4});
+    RC(grp,x+4,y+4,w-8,h-8,{rx:2,fill:'#127a4f'});
+    RC(grp,x+w/2-13,y+h/2-13,26,26,{rx:1.5,fill:'#12161b'});
+    TX(grp,x+w/2,y+h/2+3,'HX711',{fill:'#5b6470','font-size':6.6,'text-anchor':'middle'});
+    TX(grp,x+w/2,y+13,'24-BIT ADC',{fill:'#8fd9b6','font-size':6.5,'text-anchor':'middle','letter-spacing':'.6'});
+    /* 左 4 焊盘：传感器 */
+    const L=['E+','E-','A-','A+'], Rl=['VCC','DT','SCK','GND'];
+    const out={};
+    L.forEach((l,i)=>{
+      const py=y+18+i*16;
+      CI(grp,x+13,py,4.6,{fill:'#c9a227',stroke:'#8a6f18'});
+      TX(grp,x+22,py+3,l,{fill:'#bfe8d4','font-size':7});
+      out['L'+i]=[x+13,py];
+    });
+    Rl.forEach((l,i)=>{
+      const py=y+18+i*16;
+      CI(grp,x+w-13,py,4.6,{fill:'#c9a227',stroke:'#8a6f18'});
+      TX(grp,x+w-22,py+3,l,{fill:'#bfe8d4','font-size':7,'text-anchor':'end'});
+      out[l]=[x+w-13,py];
+    });
+    out.box=[x,y,w,h];
+    return out;
+  }
+
+  function drawLoadCell(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:3,fill:'url(#steel)',stroke:'#6b737b','stroke-width':1.2});
+    /* 固定端两孔 */
+    CI(grp,x+16,y+h/2,4.2,{fill:'#5c646c'});
+    CI(grp,x+34,y+h/2,4.2,{fill:'#5c646c'});
+    /* 应变片 */
+    RC(grp,x+w-70,y+6,44,20,{rx:2,fill:'#f2f0ea',stroke:'#c8c4ba'});
+    PT(grp,'M'+(x+w-64)+','+(y+11)+' L'+(x+w-32)+','+(y+11),{stroke:'#b9b4a8','stroke-width':1.2});
+    PT(grp,'M'+(x+w-64)+','+(y+16)+' L'+(x+w-32)+','+(y+16),{stroke:'#b9b4a8','stroke-width':1.2});
+    PT(grp,'M'+(x+w-64)+','+(y+21)+' L'+(x+w-32)+','+(y+21),{stroke:'#b9b4a8','stroke-width':1.2});
+    TX(grp,x+52,y+h/2+3,'5kg LOAD CELL',{fill:'#4d555d','font-size':7.5,'letter-spacing':'1'});
+    return {x,y,w,h,right:[x+w-6,y+h/2],left:[x+6,y+h/2]};
+  }
+
+  function drawRelay(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    /* 红色 PCB（实物板色） */
+    RC(grp,x,y,w,h,{rx:2,fill:'#a8231f',stroke:'#7a1512','stroke-width':1.4});
+    /* 左侧蓝色端子 VCC GND IN */
+    RC(grp,x+14,y+22,30,58,{rx:2,fill:'#1f5fa8',stroke:'#123f72','stroke-width':1});
+    ['VCC','GND','IN'].forEach((l,i)=>{
+      const py=y+34+i*18;
+      CI(grp,x+29,py,4.6,{fill:'#c9a227'});
+      TX(grp,x+48,py+2.6,l,{fill:'#f0d9a0','font-size':6.2});
+    });
+    /* 蓝色继电器本体 JQC-3FF */
+    RC(grp,x+62,y+16,68,62,{rx:2,fill:'#2a5fa8',stroke:'#1a3d70','stroke-width':1.2});
+    RC(grp,x+66,y+20,60,54,{rx:1.5,fill:'#356cb8'});
+    TX(grp,x+96,y+38,'JQC-3FF',{fill:'#e6f0fb','font-size':8,'text-anchor':'middle','font-weight':700});
+    TX(grp,x+96,y+51,'12VDC',{fill:'#a8c8e8','font-size':6.4,'text-anchor':'middle'});
+    TX(grp,x+96,y+62,'10A 250VAC',{fill:'#a8c8e8','font-size':5.6,'text-anchor':'middle'});
+    /* 光耦 / 跳线帽 / 电源灯 */
+    RC(grp,x+48,y+28,13,10,{rx:1,fill:'#16191d'});
+    RC(grp,x+50,y+66,9,14,{rx:1,fill:'#16191d'});
+    CI(grp,x+40,y+h-16,3.2,{fill:'#e5484d'});
+    /* 右侧蓝色端子 NO COM NC */
+    RC(grp,x+w-46,y+22,30,58,{rx:2,fill:'#1f5fa8',stroke:'#123f72','stroke-width':1});
+    ['NO','COM','NC'].forEach((l,i)=>{
+      const py=y+34+i*18;
+      CI(grp,x+w-31,py,4.6,{fill:'#c9a227'});
+      TX(grp,x+w-50,py+2.6,l,{fill:'#f0d9a0','font-size':6.2,'text-anchor':'end'});
+    });
+    TX(grp,x+8,y+h-6,'DC- DC+ IN',{fill:'#f0d9a0','font-size':5.6});
+    TX(grp,x+w-8,y+h-6,'NO COM NC',{fill:'#f0d9a0','font-size':5.6,'text-anchor':'end'});
+    return {
+      box:[x,y,w,h],
+      VCC:[x+2,y+36], GND:[x+2,y+54], IN:[x+2,y+72],
+      NO:[x+w-12,y+36], COM:[x+w-12,y+54], NC:[x+w-12,y+72]
+    };
+  }
+
+  function drawPump(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    /* 黑色无刷泵体 */
+    RC(grp,x+14,y+18,w-28,h-30,{rx:6,fill:'#1d2329',stroke:'#39434d','stroke-width':1.4});
+    /* 两侧安装耳 */
+    RC(grp,x+2,y+h*0.36,14,26,{rx:2,fill:'#1d2329',stroke:'#39434d','stroke-width':1});
+    RC(grp,x+w-16,y+h*0.36,14,26,{rx:2,fill:'#1d2329',stroke:'#39434d','stroke-width':1});
+    CI(grp,x+9,y+h*0.36+13,3.2,{fill:'#0d1114'});
+    CI(grp,x+w-9,y+h*0.36+13,3.2,{fill:'#0d1114'});
+    /* 顶部两个宝塔接头 */
+    RC(grp,x+w*0.36-8,y+2,16,20,{rx:3,fill:'#2b3238',stroke:'#4a555f','stroke-width':1});
+    RC(grp,x+w*0.64-8,y+2,16,20,{rx:3,fill:'#2b3238',stroke:'#4a555f','stroke-width':1});
+    TX(grp,x+w*0.36,y+15,'进',{fill:'#8fa6bb','font-size':6,'text-anchor':'middle'});
+    TX(grp,x+w*0.64,y+15,'出',{fill:'#8fa6bb','font-size':6,'text-anchor':'middle'});
+    /* 白标签 */
+    RC(grp,x+24,y+h*0.36,w-48,36,{rx:1,fill:'#eef2f5',stroke:'#c8d2da','stroke-width':.8});
+    TX(grp,x+w/2,y+h*0.36+15,'AD20P-1230C',{fill:'#2a323a','font-size':6.8,'text-anchor':'middle','font-weight':700});
+    TX(grp,x+w/2,y+h*0.36+27,'12V 3.6W 240L/H',{fill:'#4a5560','font-size':5.6,'text-anchor':'middle'});
+    /* 红黑电源线 */
+    PT(grp,'M'+(x+w*0.40)+','+(y+h-16)+' q -10 20 -4 30',{stroke:'#e5484d','stroke-width':2.4,fill:'none'});
+    PT(grp,'M'+(x+w*0.58)+','+(y+h-16)+' q -8 22 -2 32',{stroke:'#1d2329','stroke-width':2.4,fill:'none'});
+    return {top:[x+w/2,y], bottom:[x+w/2,y+h], pos:[x,y], size:[w,h]};
+  }
+
+  function drawTank(g,x,y,w,h,riceFrac,waterFrac){
+    const grp=N('g',{}); g.appendChild(grp);
+    const inner={x:x+8,y:y+10,w:w-16,h:h-18};
+    /* 玻璃/PP 壁 */
+    RC(grp,x,y,w,h,{rx:6,fill:'rgba(150,190,215,.10)',stroke:'#4f7186','stroke-width':1.6});
+    RC(grp,x+3,y+3,w-6,h-6,{rx:5,fill:'rgba(20,30,40,.55)'});
+    /* 米层 */
+    const rh=inner.h*riceFrac;
+    if(rh>0.5){
+      RC(grp,inner.x,inner.y+inner.h-rh,inner.w,rh,{fill:'#e8d9b0'});
+      /* 颗粒纹理 */
+      let seed=7;
+      for(let i=0;i<90;i++){
+        seed=(seed*1103515245+12345)&0x7fffffff;
+        const px=inner.x+((seed>>8)%Math.max(1,inner.w-6))+3;
+        const py=inner.y+inner.h-rh+((seed>>16)%Math.max(1,rh-3))+2;
+        CI(grp,px,py,1.15,{fill:i%3?'#d6c497':'#f3e8c8',opacity:.9});
+      }
+    }
+    /* 水层 */
+    const wfDraw=Math.min(inner.h*waterFrac, Math.max(0,inner.h-rh));
+    const wtop=inner.y+inner.h-rh-wfDraw;
+    if(wfDraw>0.5){
+      RC(grp,inner.x,wtop,inner.w,wfDraw,{fill:'rgba(76,201,240,.28)'});
+      /* 水面波纹 */
+      const d='M'+inner.x+','+wtop+' '+Array.from({length:9},(_,i)=>
+        'q'+(inner.w/18)+','+(i%2?-4:4)+' '+(inner.w/9)+',0').join(' ')
+        +' L'+(inner.x+inner.w)+','+(wtop+6)+' L'+inner.x+','+(wtop+6)+' Z';
+      PT(grp,d,{fill:'rgba(120,220,255,.32)',stroke:'#7fe3ff','stroke-width':1});
+    }
+    /* 目标水位虚线 */
+    TX(grp,x+w/2,y-6,'2L PP 容器',{fill:'#9fd0e8','font-size':8,'text-anchor':'middle'});
+    /* 刻度 */
+    for(let i=0;i<5;i++){
+      LN(grp,x+w-16,y+30+i*((h-50)/4),x+w-6,y+30+i*((h-50)/4),{stroke:'#5f7d90','stroke-width':1});
+    }
+    return {box:[x,y,w,h], inner, mouth:[x+w/2,y]};
+  }
+
+  function drawBatteryBox(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:5,fill:'#1b1f25',stroke:'#0b0e12','stroke-width':1.4});
+    RC(grp,x+4,y+4,w-8,h-8,{rx:4,fill:'#242a31'});
+    /* 顶面 8 节 AA（4×2） */
+    for(let r=0;r<2;r++)for(let c=0;c<4;c++){
+      const bx=x+26+c*68, by=y+34+r*58;
+      RC(grp,bx,by,58,40,{rx:9,fill:'#3b424b',stroke:'#22282f'});
+      RC(grp,bx+4,by+4,50,32,{rx:7,fill:'#4a525c'});
+      CI(grp,bx+50,by+20,7,{fill:'#c9a227'});            /* 正极凸头 */
+      CI(grp,bx+50,by+20,3.4,{fill:'#8a6f18'});
+      RC(grp,bx+6,by+20,14,10,{rx:3,fill:'#2c323a'});    /* 负极弹簧 */
+    }
+    TX(grp,x+w/2,y-8,'8 × AA = 12V 电池盒（长期用请换 12V 适配器）',
+      {fill:'#8fa3b8','font-size':8.5,'text-anchor':'middle'});
+    /* 引线 */
+    PT(grp,'M'+(x+w-6)+','+(y+18)+' L'+(x+w+30)+','+(y+18),
+       {stroke:'#c94a4a','stroke-width':2.8,'stroke-linecap':'round'});
+    PT(grp,'M'+(x+w-6)+','+(y+h-18)+' L'+(x+w+30)+','+(y+h-18),
+       {stroke:'#1d2329','stroke-width':2.8,'stroke-linecap':'round'});
+    return {box:[x,y,w,h], plus:[x+w+30,y+18], minus:[x+w+30,y+h-18]};
+  }
+
+  /* 4×4 薄膜矩阵键盘（顶视）：8 根排线从上边引出 */
+  function drawKeypad(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    /* 绿色 PCB 轻触按键板 */
+    RC(grp,x,y,w,h,{rx:2,fill:'#2e7d32',stroke:'#1b5e20','stroke-width':1.5});
+    const cw=(w-44)/4, ch=(h-40)/4;
+    for(let r=0;r<4;r++)for(let c=0;c<4;c++){
+      const bx=x+22+cw*c+cw/2, by=y+20+ch*r+ch/2;
+      RC(grp,bx-11,by-8,22,16,{rx:1,fill:'#c9ced3',stroke:'#8b9399','stroke-width':.8});
+      RC(grp,bx-8,by-5,16,10,{rx:1,fill:'#1b1f24'});
+      CI(grp,bx,by,3.4,{fill:'#2d3339'});
+    }
+    TX(grp,x+8,y+h-7,'4×4 轻触按键板',{fill:'#cfe8cf','font-size':7.6});
+    TX(grp,x+w-8,y+h-7,'R1..C4',{fill:'#a8d8a8','font-size':6,'text-anchor':'end'});
+    const pins=[];
+    for(let i=0;i<8;i++) pins.push([x+16+i*((w-32)/7), y]);
+    return {pins:pins};
+  }
+
+  function drawAdapter(g,x,y,w,h){
+    const grp=N('g',{}); g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:6,fill:'#15191d',stroke:'#0a0d10','stroke-width':1.4});
+    RC(grp,x+8,y+8,w-16,h-26,{rx:4,fill:'#1f252b'});
+    TX(grp,x+w/2,y+h*0.42,'12V',{fill:'#9fb0c2','font-size':17,'text-anchor':'middle','font-weight':700});
+    TX(grp,x+w/2,y+h*0.42+15,'2A',{fill:'#7d8fa2','font-size':11,'text-anchor':'middle'});
+    TX(grp,x+w/2,y+h-8,'DC 适配器',{fill:'#6d7f92','font-size':7.5,'text-anchor':'middle'});
+    /* DC 线 */
+    PT(grp,'M'+(x+w-6)+','+(y+h/2)+' C'+(x+w+26)+','+(y+h/2)+' '+(x+w+30)+','+(y+h/2+20)+' '+(x+w+8)+','+(y+h/2+18),
+       {stroke:'#2a3138','stroke-width':3});
+    return {box:[x,y,w,h], plug:[x+w+8,y+h/2+18]};
+  }
+
+  function drawLED(g,x,y){
+    const grp=N('g',{}); g.appendChild(grp);
+    /* 电阻 */
+    RC(grp,x,y+6,26,10,{rx:2,fill:'#d9c9a3',stroke:'#a89b7c'});
+    ['#8a4b2a','#1d2329','#c94a4a','#c9a227'].forEach((c,i)=>
+      RC(grp,x+4+i*6,y+6,3,10,{fill:c,opacity:.85}));
+    PT(grp,'M'+(x+26)+','+(y+11)+' L'+(x+44)+','+(y+11),{stroke:'#c94a4a','stroke-width':2.2});
+    /* LED 本体 */
+    CI(grp,x+52,y+11,7,{fill:'rgba(255,80,90,.85)',stroke:'#b03a44'});
+    CI(grp,x+50,y+9,2.4,{fill:'#ffd0d4',opacity:.9});
+    PT(grp,'M'+(x+59)+','+(y+11)+' L'+(x+72)+','+(y+11),{stroke:'#1d2329','stroke-width':2.2});
+    TX(grp,x+18,y+30,'220Ω',{fill:'#8fa3b8','font-size':7,'text-anchor':'middle'});
+    TX(grp,x+52,y+30,'D13 LED',{fill:'#8fa3b8','font-size':7,'text-anchor':'middle'});
+    return {in:[x,y+11], out:[x+72,y+11]};
+  }
+
+  function drawD1C1(g,x,y){
+    const grp=N('g',{}); g.appendChild(grp);
+    /* 1N4007 */
+    RC(grp,x,y+16,44,16,{rx:4,fill:'#1d2329',stroke:'#0a0d10'});
+    RC(grp,x+34,y+16,9,16,{fill:'#b9c0c7'});
+    TX(grp,x+14,y+27,'1N4007',{fill:'#7d8fa2','font-size':5.6,'text-anchor':'middle'});
+    PT(grp,'M'+(x-14)+','+(y+24)+' L'+x+','+(y+24),{stroke:'#c94a4a','stroke-width':2});
+    PT(grp,'M'+(x+43)+','+(y+24)+' L'+(x+58)+','+(y+24),{stroke:'#c94a4a','stroke-width':2});
+    /* 1000μF */
+    CI(grp,x+96,y+50,20,{fill:'#1d2329',stroke:'#0a0d10'});
+    CI(grp,x+96,y+50,15,{fill:'#2b3239'});
+    PT(grp,'M'+(x+88)+','+(y+35)+' q8,-10 16,0',{stroke:'#b9c0c7','stroke-width':2});
+    TX(grp,x+96,y+53,'1000',{fill:'#6d7f92','font-size':6,'text-anchor':'middle'});
+    TX(grp,x+96,y+60,'μF',{fill:'#6d7f92','font-size':6,'text-anchor':'middle'});
+    PT(grp,'M'+(x+96)+','+(y+30)+' L'+(x+96)+','+(y+16),{stroke:'#c94a4a','stroke-width':2});
+    PT(grp,'M'+(x+96)+','+(y+70)+' L'+(x+96)+','+(y+84),{stroke:'#1d2329','stroke-width':2});
+    return {d1a:[x-14,y+24], d1b:[x+58,y+24], c1a:[x+96,y+16], c1b:[x+96,y+84]};
+  }
+
+  function infoCard(g,x,y,w,h,title,lines,color){
+    const grp=N('g',{}); g.appendChild(grp);
+    RC(grp,x,y,w,h,{rx:8,fill:'#0c141c',stroke:'#1b2734','stroke-width':1.2});
+    RC(grp,x,y,3,h,{fill:color||'#4cc9f0',rx:1.5});
+    TX(grp,x+14,y+21,title,{fill:'#dbeaf6','font-size':11.5,'font-weight':700});
+    lines.forEach((l,i)=>{
+      TX(grp,x+14,y+42+i*16,l.t,l.c==='hi'?{fill:'#ffd23f','font-size':9.2,'font-weight':600}
+        :(l.c==='dim'?{fill:'#5d7387','font-size':9.2}:{fill:'#8fa3b8','font-size':9.2}));
+    });
+  }
+
+  function drawHardware(){
+    const svg=document.getElementById('hwSvg');
+    if(!svg) return;
+    if(svg.dataset.done==='1') return;
+    svg.dataset.done='1';
+    svg.innerHTML='';
+    /* defs */
+    const defs=N('defs',{id:'hwDefs'});
+    const pat=N('pattern',{id:'hbp',width:11,height:15,patternUnits:'userSpaceOnUse'});
+    put(pat,N('circle',{cx:5.5,cy:7.5,r:2.4,fill:'#2b333d'}));
+    put(defs,pat);
+    const grd=N('linearGradient',{id:'steel',x1:0,y1:0,x2:0,y2:1});
+    put(grd,N('stop',{offset:0,'stop-color':'#d9dee3'}));
+    put(grd,N('stop',{offset:.45,'stop-color':'#a8b0b8'}));
+    put(grd,N('stop',{offset:1,'stop-color':'#7e868e'}));
+    put(defs,grd);
+    const grd2=N('linearGradient',{id:'tube',x1:0,y1:0,x2:0,y2:1});
+    put(grd2,N('stop',{offset:0,'stop-color':'#8fd8ff'}));
+    put(grd2,N('stop',{offset:1,'stop-color':'#2b7fa8'}));
+    put(defs,grd2);
+    svg.appendChild(defs);
+
+    /* 背景 + 标题 */
+    RC(svg,0,0,1480,1300,{fill:'#080c12'});
+    TX(svg,40,36,'实物装配图',{fill:'#dbeaf6','font-size':19,'font-weight':700});
+    TX(svg,148,36,'按真实器件外观与真实引脚方位绘制 · 1mm ≈ 5px · 先摆件、再插线',{fill:'#5d7387','font-size':11});
+    TX(svg,40,58,'UNO 上长边 = DIGITAL 排（D8 / D13 在上），下长边 = POWER + ANALOG 排（5V / GND / A0 / A1 在下）',
+      {fill:'#ffd23f','font-size':11});
+
+    /* 分区框 */
+    RC(svg,40,86,1030,600,{rx:10,fill:'none',stroke:'#16222e','stroke-dasharray':'6 6'});
+    TX(svg,52,78,'弱电岛：面包板 + 模块 + UNO + 键盘全塞在一掌范围，线才短',{fill:'#4d6b82','font-size':10});
+    RC(svg,1100,86,360,600,{rx:10,fill:'none',stroke:'#16222e','stroke-dasharray':'6 6'});
+    TX(svg,1112,78,'称重 + 水路',{fill:'#4d6b82','font-size':10});
+
+    /* ============ 器件：全部直角摆放，不给线留绕远的机会 ============ */
+    const bb=drawBreadboard(svg,70,110,560,190);
+    const led=drawLED(svg,390,150);
+    const rl=drawRelay(svg,660,130,180,105);
+    const uno=drawArduinoUno(svg,70,350,340,265);
+    const batt=drawBatteryBox(svg,740,340,300,152);
+    const tank=drawTank(svg,1110,110,190,230,0.20,0.26);
+    RC(svg,1070,342,270,12,{rx:3,fill:'rgba(150,200,230,.18)',stroke:'#496a7e','stroke-width':1.2});
+    TX(svg,1205,350,'亚克力称台 3mm',{fill:'#7fa8c4','font-size':7.5,'text-anchor':'middle'});
+    const lc=drawLoadCell(svg,1100,358,220,28);
+    const hx=drawHX711(svg,1180,410,150,95);
+    const pump=drawPump(svg,1340,110,110,150);
+  const kp=drawKeypad(svg,440,478,180,168);
+    drawD1C1(svg,1100,554);
+    PT(svg,'M1060,540 L1280,540 L1280,660 L1060,660 Z',{fill:'none',stroke:'#33475a','stroke-width':1,'stroke-dasharray':'5 4'});
+    TX(svg,1170,530,'D1 并联在泵 ±  ·  C1 并联在电源 ±',{fill:'#7d8fa2','font-size':9,'text-anchor':'middle'});
+
+    /* 软管：泵顶 → 容器口 */
+    const tubeD='M'+pump.top[0]+','+pump.top[1]+' C'+(pump.top[0]-20)+','+(pump.top[1]-56)
+      +' '+(tank.mouth[0]+92)+','+(tank.mouth[1]-56)+' '+tank.mouth[0]+','+(tank.mouth[1]+24);
+    PT(svg,tubeD,{stroke:'#0b1016','stroke-width':12,'stroke-linecap':'round',fill:'none'});
+    PT(svg,tubeD,{stroke:'url(#tube)','stroke-width':8,'stroke-linecap':'round',opacity:.92,fill:'none'});
+    PT(svg,tubeD,{stroke:'#cdf1ff','stroke-width':2,'stroke-linecap':'round',opacity:.5,fill:'none'});
+    TX(svg,1180,74,'食品级硅胶软管 内径8mm',{fill:'#7fa8c4','font-size':7.5,'text-anchor':'middle'});
+
+    /* ============ 连线：只走直角，不画曲线 ============ */
+    const W=(pts,col,w,extra)=>{
+      const d='M'+pts.map(p=>p[0]+','+p[1]).join(' L');
+      PT(svg,d,{stroke:'#05090d','stroke-width':w+2.6,opacity:.42,fill:'none','stroke-linejoin':'round','stroke-linecap':'round'});
+      PT(svg,d,Object.assign({stroke:col,'stroke-width':w,fill:'none','stroke-linejoin':'round','stroke-linecap':'round'},extra||{}));
+    };
+
+    /* 1) 悬臂梁 4 线 → HX711 左焊盘：往下 40px，收成一组 */
+    ['#c94a4a','#1d2329','#3b6fd0','#f5f5f5'].forEach((c,i)=>{
+      const sx=1320-30+i*8, sy=lc.y+lc.h-6, tp=hx['L'+i];
+      W([[sx,sy],[sx,tp[1]],[tp[0],tp[1]]],c,2.2);
+    });
+
+    /* 2) D8 → 继电器 IN：贴着面包板下沿横过去 */
+    W([[uno.d8[0],uno.d8[1]],[uno.d8[0],322],[rl.IN[0],322],[rl.IN[0],rl.IN[1]]],'#ff9f1c',2.4);
+    /* 3) D13 → 状态 LED */
+    W([[uno.d13[0],uno.d13[1]],[uno.d13[0],300],[led.in[0],300],[led.in[0],led.in[1]]],'#a78bfa',2.2);
+    /* 4) 5V / GND → 继电器 VCC / GND：贴面包板右沿上去 */
+    W([[uno.d5v[0],uno.d5v[1]],[uno.d5v[0],630],[645,630],[645,rl.VCC[1]],[rl.VCC[0],rl.VCC[1]]],'#c94a4a',2.2);
+    W([[uno.dgnd[0],uno.dgnd[1]],[uno.dgnd[0],640],[633,640],[633,rl.GND[1]],[rl.GND[0],rl.GND[1]]],'#1d2329',2.2);
+
+    /* 5) 4 芯线束 → HX711：全图唯一的长线，编成一束沿底边横过去 */
+    [[uno.d5v,'#c94a4a'],[uno.dgnd,'#1d2329'],[uno.a0,'#3ddc97'],[uno.a1,'#ffd23f']]
+      .forEach(([p,col],i)=>{
+        const y=650+i*9, vx=1342+i*8, tp=hx[['VCC','GND','SCK','DT'][i]];
+        W([[p[0],p[1]],[p[0],y],[vx,y],[vx,tp[1]],[tp[0],tp[1]]],col,2.2);
+      });
+    PT(svg,'M690,700 L690,626',{stroke:'#26384a','stroke-width':1,'stroke-dasharray':'2 4'});
+    TX(svg,180,700,'↑ 5V / GND / A0 / A1 四根扎成一束走底边 —— 全图只有这一段是长线',{fill:'#7d8fa2','font-size':8.5});
+
+    /* 5b) 键盘 8 线：行 D2/D3/D4/D5 + 列 D6/D7/D9/D10
+       UNO 上长边索引：D10=7 D9=8 (D8=9 是泵) D7=10 D6=11 D5=12 D4=13 D3=14 D2=15 */
+    const kpIdx=[15,14,13,12,11,10,8,7];
+    const kpCol=['#4cc9f0','#3ddc97','#ffd166','#a78bfa','#4cc9f0','#3ddc97','#ffd166','#a78bfa'];
+    for(let i=0;i<8;i++){
+      const tx=134+10.6*kpIdx[i], ly=306+i*6, kx=kp.pins[i][0];
+      W([[kx,478],[kx,ly],[tx,ly],[tx,352]],kpCol[i],1.8);
+    }
+
+    /* 6) 电池 + → 继电器 COM：从右边绕上去，不压任何器件 */
+    W([[batt.plus[0],batt.plus[1]],[batt.plus[0],285],[900,285],[900,rl.COM[1]],[rl.COM[0],rl.COM[1]]],'#e5484d',3);
+    /* 7) 继电器 NO → 泵 +：强电走最底下那条 */
+    const pb=[pump.pos[0]+pump.size[0]/2, pump.pos[1]+pump.size[1]];
+    W([[rl.NO[0],rl.NO[1]],[1055,rl.NO[1]],[1055,880],[pb[0],880],[pb[0],pb[1]]],'#e5484d',3.4);
+    /* 8) 泵 − → 电池 −：再往下一层，两条永不相交 */
+    W([[pump.pos[0]+pump.size[0]-8,190],[1444,190],[1444,920],[1070,920],[1070,batt.minus[1]]],'#1d2329',3.4);
+    /* 9) 共地：电池 − → UNO GND，红虚线单独一层 */
+    W([[batt.minus[0],batt.minus[1]],[batt.minus[0]+20,batt.minus[1]],[batt.minus[0]+20,960],[177,960],[177,uno.dgnd[1]+3],[uno.dgnd[0],uno.dgnd[1]]],
+      '#7dd3fc',2.2,{'stroke-dasharray':'7 5'});
+    TX(svg,360,984,'★ 共地（青色虚线）：12V 负极必须接回 Arduino GND，断了继电器会乱吸',
+      {fill:'#ff8a95','font-size':9,'font-weight':700});
+
+    /* 走线层次说明 */
+    TX(svg,1112,700,'强电两层：880 泵+ / 920 泵−，共地虚线走最底 960',{fill:'#5d7387','font-size':8.5});
+    TX(svg,1112,718,'四条弱电束扎在 650–677，与强电差 200px 以上',{fill:'#5d7387','font-size':8.5});
+
+    /* 标注卡 */
+    infoCard(svg,40,975,340,150,'UNO 引脚在哪一边',[
+      {t:'上长边 DIGITAL：D8（继电器 IN）、D13（LED）',c:'hi'},
+      {t:'下长边 POWER：5V、GND、VIN'},
+      {t:'下长边 ANALOG：A0（SCK）、A1（DT）'},
+      {t:'5V 与 D8 不同边 → 线必须绕一侧，别插错',c:'dim'}
+    ],'#ffd23f');
+    infoCard(svg,400,975,340,150,'摆台顺序（照着摆）',[
+      {t:'1 底板 → 悬臂梁固定端上 M3 螺丝'},
+      {t:'2 称台压在悬空端，容器放正中'},
+      {t:'3 泵放容器外侧，软管插到容器口'},
+      {t:'4 面包板 + UNO 放另一侧，避开溅水',c:'hi'},
+      {t:'5 最后接线，接一段量一段',c:'dim'}
+    ],'#ff9f1c');
+    infoCard(svg,760,975,340,150,'继电器端子',[
+      {t:'左侧：VCC / GND / IN（信号侧）',c:'hi'},
+      {t:'右侧：COM / NO / NC（触点侧）'},
+      {t:'12V+ 接 COM，泵+ 接 NO，NC 悬空'},
+      {t:'IN 触发极性看模块跳线，默认高电平',c:'dim'}
+    ],'#4cc9f0');
+    infoCard(svg,1120,975,340,150,'悬臂梁怎么装',[
+      {t:'固定端（两孔）用 M3 螺丝锁在底板'},
+      {t:'悬空端托住亚克力称台'},
+      {t:'应变片朝上，别被台面压住',c:'hi'},
+      {t:'歪着装 → 读数随位置漂，永远校不准',c:'dim'}
+    ],'#3ddc97');
+    infoCard(svg,40,1145,340,150,'供电：二选一',[
+      {t:'A. 8×AA 电池盒 = 12V（临时、便携）',c:'hi'},
+      {t:'B. 12V 2A 适配器（长期、稳定，推荐）'},
+      {t:'泵必须独立供电，不能吃 Arduino 的 5V'},
+      {t:'负极仍需回到 Arduino GND 共地',c:'dim'}
+    ],'#a78bfa');
+    infoCard(svg,400,1145,340,150,'通电前先做这 3 件事',[
+      {t:'① 断电状态下用万用表通断档查共地'},
+      {t:'② 只插 USB，看串口能不能读到重量',c:'hi'},
+      {t:'③ 泵先不接水，空转 1 秒听继电器咔哒'},
+      {t:'任何一步不对，别接 12V',c:'dim'}
+    ],'#ff4d5e');
+
+    infoCard(svg,760,1145,340,150,'键盘 8 根线怎么接',[
+      {t:'行线：D2 D3 D4 D5（键盘第 1–4 根）',c:'hi'},
+      {t:'列线：D6 D7 D9 D10（第 5–8 根）'},
+      {t:'跳过 D8（泵）和 D13（LED），它俩已占'},
+      {t:'接反不烧，只是按键错位，对调即可',c:'dim'}
+    ],'#4cc9f0');
+
+    infoCard(svg,1120,1145,340,150,'8 档配方（按键即切）',[
+      {t:'0 东北米 1:1.2   1 泰国米 1:1.1'},
+      {t:'2 软饭 1:2.0     3 烂饭 1:3.0'},
+      {t:'4 稠粥 1:6.0     5 稀饭 1:9.0'},
+      {t:'6 / 7 自定义：调好后长按该键存进去',c:'dim'}
+    ],'#ffb020');
+
+    /* 分区标签 */
+    TX(svg,1180,1160,'实物图只保证"插哪、怎么绕"，电气原理看飞线图',
+      {fill:'#44586b','font-size':9,'text-anchor':'end'});
+  }
+
+  /* 视图切换：原理飞线图 / 实物装配图 */
+  (function(){
+    const btnW=document.getElementById('wireStage');
+    const btnH=document.getElementById('hwStage');
+    if(!btnW||!btnH) return;
+    document.querySelectorAll('.vsw').forEach(b=>{
+      b.onclick=()=>{
+        const v=b.dataset.view;
+        document.querySelectorAll('.vsw').forEach(x=>x.classList.toggle('on',x===b));
+        btnW.style.display = v==='wire'?'':'none';
+        btnH.style.display = v==='hw'?'':'none';
+        const gs=document.getElementById('grpStep'), gl=document.getElementById('grpLayer');
+        if(gs) gs.style.display = v==='wire'?'':'none';
+        if(gl) gl.style.display = v==='wire'?'':'none';
+        const lw=document.getElementById('legendWire');
+        if(lw) lw.style.display = v==='wire'?'':'none';
+        if(v==='hw') drawHardware();
+      };
+    });
+  })();
+
+  /* ---------- 启动 ---------- */
+  resize();
+  markPhase();
+  log('RiceMix 模拟器就绪。固件逻辑：投米 → 目标水 → 开泵 → 每 200ms 称重 → 到量停泵。','');
+  log('拖动左侧滑块改米水比/流量/余流，点「投米并开始」看闭环。','');
+  requestAnimationFrame(loop);
+})();
+</script>
+<style>*{transition:none!important;animation:none!important}</style>
+<script>
+(function(){
+  function go(){ var b=document.querySelector('nav button[data-tab="sim"]'); if(b) b.click(); }
+  if(document.readyState==='complete') setTimeout(go,200);
+  else window.addEventListener('load',function(){ setTimeout(go,200); });
+})();
+</script></body>
+</html>
